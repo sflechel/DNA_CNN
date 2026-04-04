@@ -11,7 +11,6 @@ def one_hot_encode(sequence: str) -> np.ndarray:
     lookup[ord("C")] = [0, 1, 0, 0]
     lookup[ord("G")] = [0, 0, 1, 0]
     lookup[ord("T")] = [0, 0, 0, 1]
-    print(byte_array)
     return lookup[
         byte_array
     ]  # numpy advanced indexing: each value is byte_array serves as an index of lookup, the result is collated into a matrix
