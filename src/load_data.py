@@ -26,20 +26,26 @@ class DNASeqDataset(Dataset):
         self.peaks = all_peaks[all_peaks["chrom"] == "chr22"]
         self.genome = None
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.peaks)
 
-    def __getitem__(self, index) -> tuple[Tensor, Tensor]:
+    def __getitem__(self, index: int) -> tuple[Tensor, Tensor]:
         peak = self.peaks.iloc[index]
-        if self.genome is None:
+        if (
+            self.genome is None
+        ):  # each object opens its own FD, the first time __getitem__ is called
             self.genome = pysam.FastaFile(self.fasta_file)
         seq = load_seq_at_peak(
-            genome, peak["chrom"], peak["start"], peak["end"], self.half_window
+            self.genome, peak["chrom"], peak["start"], peak["end"], self.half_window
         )
         encoded = one_hot_encode(seq)
         return torch.tensor(encoded, dtype=torch.float32), torch.tensor(
             1.0, dtype=torch.float32
         )  # we also return the label, set to true
+
+    def __del__(self):
+        if self.genome is not None:
+            self.genome.close()  # not strictly necessary, the garbage collector should take care of this
 
 
 def load_seq_at_peak(
@@ -48,11 +54,11 @@ def load_seq_at_peak(
     newStart = start + peak - half_window
     end = newStart + half_window * 2
     if newStart < 0:
-        start = 0
+        newStart = 0
         end = 1000
     seq = genome.fetch(chr, newStart, end)
     if len(seq) < half_window * 2:
-        seq = seq + seq.ljust(half_window * 2, "N")
+        seq = seq.ljust(half_window * 2, "N")
     return seq
 
 
