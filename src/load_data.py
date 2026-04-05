@@ -3,7 +3,7 @@ import pysam
 import torch
 from torch.utils.data import Dataset
 from torch import Tensor
-from dna_utils import one_hot_encode
+from src.dna_utils import one_hot_encode
 
 
 class DNASeqDataset(Dataset):
@@ -51,7 +51,7 @@ class DNASeqDataset(Dataset):
 def load_seq_at_peak(
     genome: pysam.FastaFile, chr: str, start: int, peak: int, half_window: int
 ) -> str:
-    newStart = start + peak - half_window
+    newStart: int = start + peak - half_window
     end = newStart + half_window * 2
     if newStart < 0:
         newStart = 0

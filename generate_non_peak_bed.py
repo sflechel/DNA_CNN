@@ -4,7 +4,8 @@ import pysam
 import random
 import itertools
 import numpy as np
-from load_data import load_seq_at_peak
+from src.load_data import load_seq_at_peak
+import pathlib
 
 
 def main():
@@ -28,10 +29,10 @@ def main():
         }
         all_offpeaks = []
         for chrom in peaks_per_chrom:
-            try:
-                chrom_len = genome.get_reference_length(chrom)
-            except ():
+            if chrom not in genome.references:
+                print(f"Skipping {chrom}: not in reference genome")
                 continue
+            chrom_len = genome.get_reference_length(chrom)
             safe_zones = get_safe_zones(
                 peaks_per_chrom[chrom],
                 chrom_len,
@@ -56,7 +57,8 @@ def main():
         offpeaks_df = offpeaks_df[
             cols
         ]  # force column order to follow the standard format
-        offpeak_filename: str = "off_" + args.bed_file
+        input_path = pathlib.Path(args.bed_file)
+        offpeak_filename = input_path.parent._str + "/off_" + input_path.name
         offpeaks_df.to_csv(offpeak_filename, sep="\t", header=False, index=False)
         print(f"Successfully wrote {len(offpeaks_df)} negatives to {offpeak_filename}")
 
@@ -133,7 +135,7 @@ def compute_average_gc_of_peaks(
     peaks: pd.DataFrame, genome: pysam.FastaFile, half_window: int
 ) -> tuple[float, float]:
     gcs: list[int] = []
-    for peak in peaks.itertuples():
+    for peak in peaks.itertuples(index=False):
         seq = load_seq_at_peak(
             genome, str(peak.chrom), peak[1], peak[9], half_window
         )  # peak[1] is start, peak[9] is peak.
