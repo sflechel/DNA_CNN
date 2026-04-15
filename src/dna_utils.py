@@ -5,8 +5,8 @@ def one_hot_encode(sequence: str) -> np.ndarray:
     print(sequence.upper().encode("ascii"))
     byte_array = np.frombuffer(
         sequence.upper().encode("ascii"), dtype=np.uint8
-    )  # .encode urns seq into array of bytes
-    # we need upper because genome data may have a, t, c, g to indicate repeating elements
+    )  # .encode turns seq into array of bytes
+    # we need upper because genome data may have lowercase to indicate repeating elements
     lookup = np.zeros((256, 4), dtype=np.float32)
     lookup[ord("A")] = [1, 0, 0, 0]
     lookup[ord("C")] = [0, 1, 0, 0]
