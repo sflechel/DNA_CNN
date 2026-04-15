@@ -4,10 +4,13 @@ import torch
 from torch.utils.data import Dataset
 from torch import Tensor
 from src.dna_utils import one_hot_encode
+import pathlib
 
 
 class DNASeqDataset(Dataset):
-    def __init__(self, bed_file: str, fasta_file: str, half_window=500):
+    def __init__(
+        self, bed_file: str, fasta_file: str, chromosoms: list[str], half_window=500
+    ):
         self.half_window = half_window
         self.fasta_file = fasta_file
         cols = [
@@ -23,7 +26,14 @@ class DNASeqDataset(Dataset):
             "peak",
         ]
         all_peaks = pd.read_csv(bed_file, sep="\t", names=cols)
-        self.peaks = all_peaks[all_peaks["chrom"] == "chr22"]
+        all_peaks["label"] = 1.0
+        peak_path = pathlib.Path(bed_file)
+        offpeak_filename = peak_path.parent / (f"/off_{peak_path.name}")
+        all_offpeaks = pd.read_csv(offpeak_filename, sep="\t", names=cols)
+        all_offpeaks["label"] = 0.0
+
+        all_data = pd.concat([all_peaks, all_offpeaks], axis=0).reset_index(drop=True)
+        self.peaks = all_data[all_data["chrom"].isin(chromosoms)].reset_index(drop=True)
         self.genome = None
 
     def __len__(self) -> int:
@@ -40,8 +50,8 @@ class DNASeqDataset(Dataset):
         )
         encoded = one_hot_encode(seq)
         return torch.tensor(encoded, dtype=torch.float32), torch.tensor(
-            1.0, dtype=torch.float32
-        )  # we also return the label, set to true
+            peak["label"], dtype=torch.float32
+        )  # we also return the label
 
     def __del__(self):
         if self.genome is not None:

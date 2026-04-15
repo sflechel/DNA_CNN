@@ -58,7 +58,7 @@ def main():
             cols
         ]  # force column order to follow the standard format
         input_path = pathlib.Path(args.bed_file)
-        offpeak_filename = input_path.parent._str + "/off_" + input_path.name
+        offpeak_filename = input_path.parent / f"/off_{input_path.name}"
         offpeaks_df.to_csv(offpeak_filename, sep="\t", header=False, index=False)
         print(f"Successfully wrote {len(offpeaks_df)} negatives to {offpeak_filename}")
 
