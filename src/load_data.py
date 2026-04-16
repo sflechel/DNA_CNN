@@ -28,7 +28,7 @@ class DNASeqDataset(Dataset):
         all_peaks = pd.read_csv(bed_file, sep="\t", names=cols)
         all_peaks["label"] = 1.0
         peak_path = pathlib.Path(bed_file)
-        offpeak_filename = peak_path.parent / (f"/off_{peak_path.name}")
+        offpeak_filename = peak_path.parent / (f"off_{peak_path.name}")
         all_offpeaks = pd.read_csv(offpeak_filename, sep="\t", names=cols)
         all_offpeaks["label"] = 0.0
 

@@ -1,5 +1,8 @@
+from src.training import train
+
+
 def main():
-    print("Hello from dna-cnn!")
+    train()
 
 
 if __name__ == "__main__":

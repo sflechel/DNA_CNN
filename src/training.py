@@ -1,32 +1,33 @@
 from math import nan
 import torch
 from torch.utils.data import DataLoader
-from load_data import DNASeqDataset
-from model import DNACNN
+from src.load_data import DNASeqDataset
+from src.model import DNACNN
 import torch.nn as nn
 import torch.optim as optim
 import logging
 import wandb
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[logging.FileHandler("training_log.log"), logging.StreamHandler()],
-)
-logger = logging.getLogger(__name__)
 
-wandb.init(
-    project="DNA_CNN",
-    config={
-        "learning_rate": 0.001,
-        "epochs": 10,
-        "batch_size": 64,
-        "architecture": "CNN-1D",
-    },
-)
+def train(batch_size: int = 64, num_workers: int = 16):
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[logging.FileHandler("training_log.log"), logging.StreamHandler()],
+    )
+    logger = logging.getLogger(__name__)
 
+    wandb.init(
+        entity="solalflechelles-",
+        project="DNA_CNN",
+        config={
+            "learning_rate": 0.001,
+            "epochs": 10,
+            "batch_size": 64,
+            "architecture": "CNN-1D",
+        },
+    )
 
-def train(batch_size: int, num_workers: int):
     training_chroms = [f"chr{i}" for i in range(1, 21)]
     validation_chroms = ["chr21"]
     # test_chroms = ["chr22"]
@@ -113,7 +114,7 @@ def train(batch_size: int, num_workers: int):
 
                 validation_logits = model(validation_sequences)
 
-                batch_loss = criterion(validation_sequences, validation_labels)
+                batch_loss = criterion(validation_logits, validation_labels)
                 validation_loss += batch_loss.item()
 
                 probabilities = torch.sigmoid(validation_logits)
@@ -136,3 +137,7 @@ def train(batch_size: int, num_workers: int):
         print(
             f"At epoch {epoch + 1} of {num_epochs} Training loss: {avg_loss:.4f} Validation loss: {avg_validation_loss:.4f} Validation accuracy: {validation_accuracy * 100:.4f}%"
         )
+
+
+if __name__ == "__main__":
+    train()
