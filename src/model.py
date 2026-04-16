@@ -19,7 +19,6 @@ class DNACNN(nn.Module):
         dummy_input = torch.zeros(1, 4, seq_len)
         flat_size = self.feature_extractor(dummy_input).numel()
 
-        # 2. The Classifier
         self.classifier = nn.Sequential(
             nn.Flatten(),
             nn.Linear(flat_size, 128),
