@@ -2,7 +2,7 @@ import numpy as np
 
 
 def one_hot_encode(sequence: str) -> np.ndarray:
-    print(sequence.upper().encode("ascii"))
+    # print(sequence.upper().encode("ascii"))
     byte_array = np.frombuffer(
         sequence.upper().encode("ascii"), dtype=np.uint8
     )  # .encode turns seq into array of bytes

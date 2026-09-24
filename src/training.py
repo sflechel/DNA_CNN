@@ -6,7 +6,6 @@ from src.model import DNACNN
 import torch.nn as nn
 import torch.optim as optim
 import logging
-import wandb
 
 
 def train(batch_size: int = 64, num_workers: int = 16):
@@ -16,17 +15,6 @@ def train(batch_size: int = 64, num_workers: int = 16):
         handlers=[logging.FileHandler("training_log.log"), logging.StreamHandler()],
     )
     logger = logging.getLogger(__name__)
-
-    wandb.init(
-        entity="solalflechelles-",
-        project="DNA_CNN",
-        config={
-            "learning_rate": 0.001,
-            "epochs": 10,
-            "batch_size": 64,
-            "architecture": "CNN-1D",
-        },
-    )
 
     training_chroms = [f"chr{i}" for i in range(1, 21)]
     validation_chroms = ["chr21"]
@@ -97,7 +85,6 @@ def train(batch_size: int = 64, num_workers: int = 16):
             optimizer.step()
 
             running_loss += loss.item()
-            wandb.log({"batch_loss:": loss.item()})
         avg_loss = nan
         if len(training_loader) != 0:
             avg_loss = running_loss / len(training_loader)
@@ -126,14 +113,6 @@ def train(batch_size: int = 64, num_workers: int = 16):
         avg_validation_loss = validation_loss / len(validation_loader)
         validation_accuracy = correct_predictions / total_predictions
 
-        wandb.log(
-            {
-                "epoch": epoch + 1,
-                "training_loss": avg_loss,
-                "validation_loss": avg_validation_loss,
-                "validation_accuracy": validation_accuracy,
-            }
-        )
         print(
             f"At epoch {epoch + 1} of {num_epochs} Training loss: {avg_loss:.4f} Validation loss: {avg_validation_loss:.4f} Validation accuracy: {validation_accuracy * 100:.4f}%"
         )

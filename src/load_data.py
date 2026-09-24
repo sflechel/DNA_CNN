@@ -3,7 +3,6 @@ import pysam
 import torch
 from torch.utils.data import Dataset
 from torch import Tensor
-from src.dna_utils import one_hot_encode
 import pathlib
 
 
@@ -40,13 +39,15 @@ class DNASeqDataset(Dataset):
         return len(self.peaks)
 
     def __getitem__(self, index: int) -> tuple[Tensor, Tensor]:
+        from src.dna_utils import one_hot_encode
+
         peak = self.peaks.iloc[index]
         if (
             self.genome is None
         ):  # each object opens its own FD, the first time __getitem__ is called
             self.genome = pysam.FastaFile(self.fasta_file)
         seq = load_seq_at_peak(
-            self.genome, peak["chrom"], peak["start"], peak["end"], self.half_window
+            self.genome, peak["chrom"], peak["start"], peak["peak"], self.half_window
         )
         encoded = one_hot_encode(seq)
         return torch.tensor(encoded, dtype=torch.float32), torch.tensor(
@@ -99,5 +100,5 @@ if __name__ == "__main__":
         )
     if seq:
         print(seq)
-        encoded = one_hot_encode(seq)
-        print(encoded)
+        # encoded = one_hot_encode(seq)
+        # print(encoded)

@@ -74,9 +74,7 @@ def get_arguments() -> argparse.Namespace:
     parser.add_argument(
         "fasta_file", type=str, help="Path to the input genome .fasta file"
     )
-    parser.add_argument(
-        "--half_window", type=int, default=500, help="Half window size (default: 500)"
-    )
+    parser.add_argument("--half_window", type=int, default=500, help="Half window size")
     return parser.parse_args()
 
 
