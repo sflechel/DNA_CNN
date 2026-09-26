@@ -8,7 +8,7 @@ import torch.optim as optim
 import logging
 from pathlib import Path
 import argparse
-import sklearn.metrics
+from sklearn.metrics import roc_auc_score
 
 
 def apply_weight_norm_constraint(model: DNACNN, lambda3: float) -> None:
@@ -124,6 +124,8 @@ def train(args: argparse.Namespace):
         validation_loss = 0.0
         correct_predictions = 0
         total_predictions = 0
+        all_preds = []
+        all_labels = []
 
         with torch.no_grad():
             for validation_sequences, validation_labels in validation_loader:
@@ -133,7 +135,7 @@ def train(args: argparse.Namespace):
                 validation_logits = model(validation_sequences)
 
                 batch_loss = criterion(validation_logits, validation_labels)
-                validation_loss += batch_loss.item()
+                validation_loss += batch_loss.item() * validation_sequences.size(0)
 
                 probabilities = torch.sigmoid(validation_logits)
                 validation_predictions = (probabilities >= 0.5).float()
@@ -141,8 +143,17 @@ def train(args: argparse.Namespace):
                     (validation_predictions == validation_labels).sum().item()
                 )
                 total_predictions += validation_predictions.size(0)
-        avg_validation_loss = validation_loss / len(validation_loader)
+
+                all_preds.append(probabilities)
+                all_labels.append(validation_labels)
+        avg_validation_loss = (
+            validation_loss / len(validation_loader) / total_predictions
+        )
         validation_accuracy = correct_predictions / total_predictions
+
+        all_preds = torch.cat(all_preds, dim=0).cpu().numpy()
+        all_labels = torch.cat(all_labels, dim=0).cpu().numpy()
+        val_auroc = roc_auc_score(all_labels, all_preds)
 
         scheduler.step(avg_validation_loss)
 
@@ -159,5 +170,7 @@ def train(args: argparse.Namespace):
             break
 
         logger.info(
-            f"At epoch {epoch + 1} of {args.num_epochs} Training loss: {avg_loss:.4f} Validation loss: {avg_validation_loss:.4f} Validation accuracy: {validation_accuracy * 100:.4f}%"
+            f"At epoch {epoch + 1} of {args.num_epochs}: "
+            f"Training loss: {avg_loss:.4f} | Validation loss: {avg_validation_loss:.4f} | "
+            f"Validation accuracy: {validation_accuracy * 100:.2f}% |  Validation ROC-AUC: {val_auroc:.4f}"
         )
