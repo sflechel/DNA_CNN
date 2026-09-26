@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 import logging
 from pathlib import Path
+import argparse
 
 
 def apply_weight_norm_constraint(model: DNACNN, lambda3: float) -> None:
@@ -24,7 +25,7 @@ def apply_weight_norm_constraint(model: DNACNN, lambda3: float) -> None:
                 param.copy_(param * clamped / (l2norm + 1e-8))
 
 
-def train(batch_size: int = 64, num_workers: int = 16):
+def train(args: argparse.Namespace):
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
@@ -46,17 +47,17 @@ def train(batch_size: int = 64, num_workers: int = 16):
 
     training_loader = DataLoader(
         training_dataset,
-        batch_size=batch_size,
+        batch_size=args.batch_size,
         shuffle=True,
-        num_workers=num_workers,
+        num_workers=args.num_workers,
         pin_memory=True,
     )
 
     validation_loader = DataLoader(
         validation_dataset,
-        batch_size=batch_size,
+        batch_size=args.batch_size,
         shuffle=True,
-        num_workers=num_workers,
+        num_workers=args.num_workers,
         pin_memory=True,
     )
 
@@ -79,11 +80,12 @@ def train(batch_size: int = 64, num_workers: int = 16):
 
     criterion = nn.BCEWithLogitsLoss()
 
-    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)
+    optimizer = optim.Adam(
+        model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay
+    )
 
     num_epochs = 10
     best_val_loss = float("inf")
-    lambda2 = 1e-5
     for epoch in range(num_epochs):
         model.train()
         running_loss = 0.0
@@ -97,14 +99,18 @@ def train(batch_size: int = 64, num_workers: int = 16):
             predictions, hidden_activation = model.forward_return_hidden(sequences)
 
             bceloss = criterion(predictions, labels)
-            h_loss = lambda2 * torch.norm(hidden_activation, p=1) / sequences.size(0)
+            h_loss = (
+                args.output_decay
+                * torch.norm(hidden_activation, p=1)
+                / sequences.size(0)
+            )
             loss = bceloss + h_loss
 
             loss.backward()
 
             optimizer.step()
 
-            apply_weight_norm_constraint(model, 3.0)
+            apply_weight_norm_constraint(model, args.neuron_norm_max)
 
             running_loss += loss.item()
         avg_loss = nan
@@ -144,7 +150,3 @@ def train(batch_size: int = 64, num_workers: int = 16):
         logger.info(
             f"At epoch {epoch + 1} of {num_epochs} Training loss: {avg_loss:.4f} Validation loss: {avg_validation_loss:.4f} Validation accuracy: {validation_accuracy * 100:.4f}%"
         )
-
-
-if __name__ == "__main__":
-    train()
