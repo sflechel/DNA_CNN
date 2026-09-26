@@ -7,12 +7,17 @@ class DNACNN(nn.Module):
         super().__init__()
 
         self.feature_extractor = nn.Sequential(
-            nn.Conv1d(in_channels=4, out_channels=32, kernel_size=15),
+            nn.Conv1d(in_channels=4, out_channels=32, kernel_size=8),
             nn.ReLU(),
             nn.MaxPool1d(kernel_size=4),
-            nn.Conv1d(in_channels=32, out_channels=64, kernel_size=5),
+            nn.Dropout1d(0.2),
+            nn.Conv1d(in_channels=32, out_channels=64, kernel_size=8),
             nn.ReLU(),
             nn.MaxPool1d(kernel_size=4),
+            nn.Dropout1d(0.2),
+            nn.Conv1d(in_channels=64, out_channels=96, kernel_size=8),
+            nn.Dropout1d(0.5),
+            nn.ReLU(),
         )
 
         # we use a dummy input to get the output shape without doing the maths
@@ -23,9 +28,7 @@ class DNACNN(nn.Module):
             nn.Flatten(),
             nn.Linear(flat_size, 128),
             nn.ReLU(),
-            nn.Dropout(
-                0.5
-            ),  # randomly drop half the feature neurons to prevent overfitting on any specific feature
+            # nn.Dropout(0.5),
             nn.Linear(128, 1),
         )
 
@@ -50,7 +53,8 @@ class DNACNN(nn.Module):
 
         hidden_weights = self.classifier[1](flattened)
         hidden_activation = self.classifier[2](hidden_weights)
-        hidden_dropout = self.classifier[3](hidden_activation)
-        logits = self.classifier[4](hidden_dropout)
+        # hidden_dropout = self.classifier[3](hidden_activation)
+        # logits = self.classifier[4](hidden_dropout)
+        logits = self.classifier[3](hidden_activation)
 
         return logits.squeeze(-1), hidden_activation

@@ -7,6 +7,13 @@ def main():
         description="Train the DNA CNN to find active regions in noncoding DNA"
     )
     parser.add_argument(
+        "-ne",
+        "--num_epochs",
+        type=int,
+        default=10,
+        help="Number of epochs spent training",
+    )
+    parser.add_argument(
         "-nw",
         "--num_workers",
         type=int,
@@ -31,21 +38,21 @@ def main():
         "-l1",
         "--weight_decay",
         type=float,
-        default=1e-4,
+        default=5e-7,
         help="Model weight decay parameter",
     )
     parser.add_argument(
         "-l2",
         "--output_decay",
         type=float,
-        default=1e-5,
+        default=1e-8,
         help="Parameter of L1 penalty for output of fully connected layer",
     )
     parser.add_argument(
         "-l3",
         "--neuron_norm_max",
         type=float,
-        default=3.0,
+        default=0.9,
         help="Max norm for any neuron weight tensor",
     )
     args = parser.parse_args()
