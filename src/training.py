@@ -64,10 +64,11 @@ def train(batch_size: int = 64, num_workers: int = 16):
 
     criterion = nn.BCEWithLogitsLoss()
 
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)
 
     num_epochs = 10
     best_val_loss = float("inf")
+    lambda2 = 1e-5
     for epoch in range(num_epochs):
         model.train()
         running_loss = 0.0
@@ -78,9 +79,22 @@ def train(batch_size: int = 64, num_workers: int = 16):
 
             optimizer.zero_grad()  # clear out gradients from previous epoch
 
-            predictions = model(sequences)
+            # features = model.feature_extractor(sequences.permute(0, 2, 1))
+            # flattened = model.classifier[0](features)
+            #
+            # hidden_weights = model.classifier[1](flattened)
+            # hidden_activation = model.classifier[2](hidden_weights)
+            # hidden_dropout = model.classifier[3](hidden_activation)
+            # predictions = model.classifier[4](hidden_dropout)
 
-            loss = criterion(predictions, labels)
+            # predictions = model(sequences)
+
+            predictions, hidden_activation = model.forward_return_hidden(sequences)
+
+            bceloss = criterion(predictions, labels)
+            loss = bceloss + lambda2 * torch.norm(
+                hidden_activation, p=1
+            ) / sequences.size(0)
 
             loss.backward()
 

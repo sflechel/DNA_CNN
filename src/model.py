@@ -38,3 +38,19 @@ class DNACNN(nn.Module):
         logits = self.classifier(features)
 
         return logits.squeeze(-1)
+
+    def forward_return_hidden(
+        self, input: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        if input.shape[-1] == 4:
+            input = input.transpose(1, 2)
+
+        features = self.feature_extractor(input)
+        flattened = self.classifier[0](features)
+
+        hidden_weights = self.classifier[1](flattened)
+        hidden_activation = self.classifier[2](hidden_weights)
+        hidden_dropout = self.classifier[3](hidden_activation)
+        logits = self.classifier[4](hidden_dropout)
+
+        return logits.squeeze(-1), hidden_activation
