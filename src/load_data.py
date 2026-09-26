@@ -7,12 +7,24 @@ import pathlib
 import logging
 
 
+def reverse_complement(sequences: torch.Tensor) -> torch.Tensor:
+    flipped = torch.flip(sequences, dims=[0])
+    rc = flipped[:, [3, 2, 1, 0]]
+    return rc
+
+
 class DNASeqDataset(Dataset):
     def __init__(
-        self, bed_file: str, fasta_file: str, chromosoms: list[str], half_window=500
+        self,
+        bed_file: str,
+        fasta_file: str,
+        chromosoms: list[str],
+        allow_rc: bool,
+        half_window=500,
     ):
         self.half_window = half_window
         self.fasta_file = fasta_file
+        self.allow_rc = allow_rc
         cols = [
             "chrom",
             "start",
@@ -58,10 +70,12 @@ class DNASeqDataset(Dataset):
         seq = load_seq_at_peak(
             self.genome, peak["chrom"], peak["start"], peak["peak"], self.half_window
         )
-        encoded = one_hot_encode(seq)
-        return torch.tensor(encoded, dtype=torch.float32), torch.tensor(
-            peak["label"], dtype=torch.float32
-        )  # we also return the label
+        encoded = torch.tensor(one_hot_encode(seq), dtype=torch.float32)
+
+        if self.allow_rc and torch.rand(1).item() > 0.5:
+            encoded = reverse_complement(encoded)
+
+        return encoded, torch.tensor(peak["label"], dtype=torch.float32)
 
     def __del__(self):
         if self.genome is not None:

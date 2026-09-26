@@ -7,15 +7,15 @@ class DNACNN(nn.Module):
         super().__init__()
 
         self.feature_extractor = nn.Sequential(
-            nn.Conv1d(in_channels=4, out_channels=32, kernel_size=8),
+            nn.Conv1d(in_channels=4, out_channels=64, kernel_size=8),
             nn.ReLU(),
             nn.MaxPool1d(kernel_size=4),
             nn.Dropout1d(0.2),
-            nn.Conv1d(in_channels=32, out_channels=64, kernel_size=8),
+            nn.Conv1d(in_channels=64, out_channels=128, kernel_size=8),
             nn.ReLU(),
             nn.MaxPool1d(kernel_size=4),
             nn.Dropout1d(0.2),
-            nn.Conv1d(in_channels=64, out_channels=96, kernel_size=8),
+            nn.Conv1d(in_channels=128, out_channels=192, kernel_size=8),
             nn.Dropout1d(0.5),
             nn.ReLU(),
         )

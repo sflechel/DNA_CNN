@@ -8,6 +8,7 @@ import torch.optim as optim
 import logging
 from pathlib import Path
 import argparse
+import sklearn.metrics
 
 
 def apply_weight_norm_constraint(model: DNACNN, lambda3: float) -> None:
@@ -38,10 +39,10 @@ def train(args: argparse.Namespace):
     # test_chroms = ["chr22"]
 
     training_dataset = DNASeqDataset(
-        "data/ENCFF896UZB.bed", "data/hg38.fa", training_chroms
+        "data/ENCFF896UZB.bed", "data/hg38.fa", training_chroms, allow_rc=True
     )
     validation_dataset = DNASeqDataset(
-        "data/ENCFF896UZB.bed", "data/hg38.fa", validation_chroms
+        "data/ENCFF896UZB.bed", "data/hg38.fa", validation_chroms, allow_rc=False
     )
     # test_dataset = DNASeqDataset("data/ENCFF896UZB.bed", "data/hg38.fa", test_chroms)
 
@@ -84,9 +85,11 @@ def train(args: argparse.Namespace):
         model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay
     )
 
-    num_epochs = 10
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=3)
+
     best_val_loss = float("inf")
-    for epoch in range(num_epochs):
+    patience_counter = 0
+    for epoch in range(args.num_epochs):
         model.train()
         running_loss = 0.0
 
@@ -141,12 +144,20 @@ def train(args: argparse.Namespace):
         avg_validation_loss = validation_loss / len(validation_loader)
         validation_accuracy = correct_predictions / total_predictions
 
+        scheduler.step(avg_validation_loss)
+
         if avg_validation_loss < best_val_loss:
             best_val_loss = avg_validation_loss
+            patience_counter = 0
             checkpoint_path: Path = Path("output/checkpoints/best_model.pth")
             torch.save(model.state_dict(), checkpoint_path)
             logger.info(f"New best model found. Saving at {checkpoint_path}")
+        else:
+            patience_counter += 1
+        if patience_counter >= 6:
+            logger.info("No progress is being made, aborting")
+            break
 
         logger.info(
-            f"At epoch {epoch + 1} of {num_epochs} Training loss: {avg_loss:.4f} Validation loss: {avg_validation_loss:.4f} Validation accuracy: {validation_accuracy * 100:.4f}%"
+            f"At epoch {epoch + 1} of {args.num_epochs} Training loss: {avg_loss:.4f} Validation loss: {avg_validation_loss:.4f} Validation accuracy: {validation_accuracy * 100:.4f}%"
         )
