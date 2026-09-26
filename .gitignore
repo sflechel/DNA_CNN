@@ -13,3 +13,4 @@ data/
 wandb/
 *.log
 .env
+output

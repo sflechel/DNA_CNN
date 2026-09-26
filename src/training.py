@@ -6,6 +6,7 @@ from src.model import DNACNN
 import torch.nn as nn
 import torch.optim as optim
 import logging
+from pathlib import Path
 
 
 def train(batch_size: int = 64, num_workers: int = 16):
@@ -66,6 +67,7 @@ def train(batch_size: int = 64, num_workers: int = 16):
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     num_epochs = 10
+    best_val_loss = float("inf")
     for epoch in range(num_epochs):
         model.train()
         running_loss = 0.0
@@ -113,7 +115,13 @@ def train(batch_size: int = 64, num_workers: int = 16):
         avg_validation_loss = validation_loss / len(validation_loader)
         validation_accuracy = correct_predictions / total_predictions
 
-        print(
+        if avg_validation_loss < best_val_loss:
+            best_val_loss = avg_validation_loss
+            checkpoint_path: Path = Path("output/checkpoints/best_model.pth")
+            torch.save(model.state_dict(), checkpoint_path)
+            logger.info(f"New best model found. Saving at {checkpoint_path}")
+
+        logger.info(
             f"At epoch {epoch + 1} of {num_epochs} Training loss: {avg_loss:.4f} Validation loss: {avg_validation_loss:.4f} Validation accuracy: {validation_accuracy * 100:.4f}%"
         )
 

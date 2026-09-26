@@ -4,6 +4,7 @@ import torch
 from torch.utils.data import Dataset
 from torch import Tensor
 import pathlib
+import logging
 
 
 class DNASeqDataset(Dataset):
@@ -34,6 +35,14 @@ class DNASeqDataset(Dataset):
         all_data = pd.concat([all_peaks, all_offpeaks], axis=0).reset_index(drop=True)
         self.peaks = all_data[all_data["chrom"].isin(chromosoms)].reset_index(drop=True)
         self.genome = None
+
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s [%(levelname)s] %(message)s",
+            handlers=[logging.FileHandler("training_log.log"), logging.StreamHandler()],
+        )
+        logger = logging.getLogger(__name__)
+        logger.info(f"Number of peaks in dataset: {len(self.peaks)}")
 
     def __len__(self) -> int:
         return len(self.peaks)
