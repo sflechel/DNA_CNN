@@ -9,6 +9,21 @@ import logging
 from pathlib import Path
 
 
+def apply_weight_norm_constraint(model: DNACNN, lambda3: float) -> None:
+    with torch.no_grad():
+        for name, param in model.named_parameters():
+            if "weight" not in name:
+                continue
+            if param.ndim == 2:
+                l2norm = torch.norm(param, p=2, dim=1, keepdim=True)
+                clamped = torch.clamp(l2norm, max=lambda3)
+                param.copy_(param * (clamped / (l2norm + 1e-8)))
+            elif param.ndim == 3:
+                l2norm = torch.norm(param, p=2, dim=[1, 2], keepdim=True)
+                clamped = torch.clamp(l2norm, max=lambda3)
+                param.copy_(param * clamped / (l2norm + 1e-8))
+
+
 def train(batch_size: int = 64, num_workers: int = 16):
     logging.basicConfig(
         level=logging.INFO,
@@ -60,7 +75,7 @@ def train(batch_size: int = 64, num_workers: int = 16):
     )
     logger.info(f"Training on {device}")
 
-    model = DNACNN().to(device)
+    model: DNACNN = DNACNN().to(device)
 
     criterion = nn.BCEWithLogitsLoss()
 
@@ -79,26 +94,17 @@ def train(batch_size: int = 64, num_workers: int = 16):
 
             optimizer.zero_grad()  # clear out gradients from previous epoch
 
-            # features = model.feature_extractor(sequences.permute(0, 2, 1))
-            # flattened = model.classifier[0](features)
-            #
-            # hidden_weights = model.classifier[1](flattened)
-            # hidden_activation = model.classifier[2](hidden_weights)
-            # hidden_dropout = model.classifier[3](hidden_activation)
-            # predictions = model.classifier[4](hidden_dropout)
-
-            # predictions = model(sequences)
-
             predictions, hidden_activation = model.forward_return_hidden(sequences)
 
             bceloss = criterion(predictions, labels)
-            loss = bceloss + lambda2 * torch.norm(
-                hidden_activation, p=1
-            ) / sequences.size(0)
+            h_loss = lambda2 * torch.norm(hidden_activation, p=1) / sequences.size(0)
+            loss = bceloss + h_loss
 
             loss.backward()
 
             optimizer.step()
+
+            apply_weight_norm_constraint(model, 3.0)
 
             running_loss += loss.item()
         avg_loss = nan
