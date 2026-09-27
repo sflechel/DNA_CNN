@@ -1,0 +1,13 @@
+# ENCODE API filtering parameters
+cell_type: "K562"
+assay_type: "ChIP-seq"
+assembly: "GRCh38"
+min_peaks: 1000          
+
+# Output directories
+beds_outdir: "data/beds"
+fasta_outdir: "data/fasta"
+
+# file coordinates
+fasta: "hg38.fa"
+fasta_url: "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.gz"
