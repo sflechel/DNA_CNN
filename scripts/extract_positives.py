@@ -6,7 +6,7 @@ from pysam import FastaFile
 import numpy as np
 import h5py
 
-from utils import get_gc_content, load_chrom_peaks, one_hot_encode_sequences
+from scripts.utils import get_gc_content, load_chrom_peaks, one_hot_encode_sequences
 
 logging.basicConfig(
     level=logging.INFO,
@@ -23,7 +23,7 @@ def cluster_peaks(
     current_cluster = [peaks[0]]
 
     for p in peaks[1:]:
-        curr_cluster_start = current_cluster[-1][0]
+        curr_cluster_start = current_cluster[0][0]
         if p[1] <= curr_cluster_start + max_span:
             current_cluster.append(p)
         else:
@@ -36,26 +36,31 @@ def cluster_peaks(
     return clusters
 
 
-def main() -> None:
-    chrom: str = snakemake.wildcards.chrom
-    window_size: int = snakemake.params.window_size
-    inner_size: int = snakemake.params.inner_size
-
+def extract_positives(
+    chrom: str,
+    window_size: int,
+    inner_size: int,
+    target_ids: str,
+    master_bed: str,
+    fa: str,
+    stats: str,
+    h5: str,
+) -> None:
     seqs: list[str] = []
     labels: list[NDArray[np.float32]] = []
     peak_gc_contents: list[float] = []
 
-    with open(snakemake.input.target_ids, "r") as file:
+    with open(target_ids, "r") as file:
         ids = json.load(file)
     num_targets: int = len(ids["target_list"])
 
-    peaks = load_chrom_peaks(snakemake.input.master_bed, chrom, ids["targets_to_ids"])
+    peaks = load_chrom_peaks(master_bed, chrom, ids["targets_to_ids"])
     if not peaks:
         logging.error(f"Found no peaks for chromosome {chrom}")
 
     clusters = cluster_peaks(peaks, max_span=inner_size)
 
-    with FastaFile(snakemake.input.fa) as genome:
+    with FastaFile(fa) as genome:
         if chrom not in genome.references:
             logging.error(f"Chromosome {chrom} not in genome")
             exit(1)
@@ -87,14 +92,14 @@ def main() -> None:
 
     logging.info(f"Found {len(seqs)} true peaks in chromosome {chrom}")
 
-    os.makedirs(os.path.dirname(snakemake.output.stats), exist_ok=True)
-    with open(snakemake.output.stats, "w") as file:
+    os.makedirs(os.path.dirname(stats), exist_ok=True)
+    with open(stats, "w") as file:
         json.dump(
             {"count": len(peak_gc_contents), "pos_gc_content": peak_gc_contents}, file
         )
 
-    os.makedirs(os.path.dirname(snakemake.output.h5), exist_ok=True)
-    with h5py.File(snakemake.output.h5, "w") as h5file:
+    os.makedirs(os.path.dirname(h5), exist_ok=True)
+    with h5py.File(h5, "w") as h5file:
         if seqs:
             h5file.create_dataset(
                 "inputs", data=one_hot_encode_sequences(seqs), compression="gzip"
@@ -105,6 +110,30 @@ def main() -> None:
         else:
             h5file.create_dataset("inputs", shape=(0, 4, window_size), dtype=np.float32)
             h5file.create_dataset("targets", shape=(0, num_targets), dtype=np.float32)
+
+
+def main() -> None:
+    chrom: str = snakemake.wildcards.chrom
+    window_size: int = snakemake.params.window_size
+    inner_size: int = snakemake.params.inner_size
+
+    target_ids: str = snakemake.input.target_ids
+    master_bed: str = snakemake.input.master_bed
+    fa: str = snakemake.input.fa
+
+    stats: str = snakemake.output.stats
+    h5: str = snakemake.output.h5
+
+    extract_positives(
+        chrom=chrom,
+        window_size=window_size,
+        inner_size=inner_size,
+        target_ids=target_ids,
+        master_bed=master_bed,
+        fa=fa,
+        stats=stats,
+        h5=h5,
+    )
 
 
 if __name__ == "__main__":

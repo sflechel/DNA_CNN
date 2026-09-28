@@ -13,7 +13,7 @@ rule extract_positives:
         target_ids="data/processed/target_ids.json"
     output:
         h5="data/processed/tensors/{chrom}_pos.h5",
-        stats="data/processed/tensors/{chrom}_stats.h5"
+        stats="data/processed/tensors/{chrom}_stats.json"
     params:
         window_size=1100,
         inner_size=1100
@@ -45,8 +45,6 @@ rule download_fasta:
         "scripts/download_fasta.py"
 
 rule download_beds:
-    input:
-        config="config.yaml"
     output:
         sentinel="data/beds/.download_complete"
     script:
