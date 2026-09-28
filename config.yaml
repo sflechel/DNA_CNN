@@ -2,7 +2,7 @@
 cell_type: "K562"
 assay_type: "ChIP-seq"
 assembly: "GRCh38"
-min_peaks: 1000          
+min_peaks: 3000          
 
 # Output directories
 beds_outdir: "data/beds"

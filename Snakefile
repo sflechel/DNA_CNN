@@ -2,8 +2,25 @@ configfile: "config.yaml"
 
 rule all:
     input:
-        "data/fasta/hg38.fa",
-        "data/beds/.download_complete"
+        "data/processed/target_ids.json"
+
+rule map_targets:
+    input:
+        master_bed="data/processed/master.bed"
+    output:
+        target_ids="data/processed/target_ids.json"
+    script:
+        "scripts/map_targets_to_id.py"
+
+rule merge_all:
+    input:
+        sentinel="data/beds/.download_complete"
+    output:
+        master_bed="data/processed/master.bed"
+    params:
+        beds_dir="data/beds"
+    script:
+        "scripts/merge_beds.py"
 
 rule download_fasta:
     output:
@@ -13,7 +30,6 @@ rule download_fasta:
 
 rule download_beds:
     input:
-        # Optional: if you want the config file changes to trigger re-checks
         config="config.yaml"
     output:
         sentinel="data/beds/.download_complete"

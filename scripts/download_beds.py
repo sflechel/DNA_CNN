@@ -5,6 +5,12 @@ import time
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import requests
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
 
 
 def create_robust_session():
@@ -23,24 +29,16 @@ def create_robust_session():
 
 def count_gzipped_lines(filepath):
     count = 0
-    try:
-        with gzip.open(filepath, "rt") as f:
-            for _ in f:
-                count += 1
-    except (EOFError, gzip.BadGzipFile):
-        return 0
+    with gzip.open(filepath, "rt") as f:
+        for _ in f:
+            count += 1
     return count
 
 
 def main():
-    outdir = snakemake.config["beds_outdir"]
+    config = snakemake.config
+    outdir = config["beds_outdir"]
     os.makedirs(outdir, exist_ok=True)
-
-    assembly_query = (
-        "GRCh38"
-        if snakemake.config["assembly"] == "hg38"
-        else snakemake.config["assembly"]
-    )
 
     session = create_robust_session()
     headers = {
@@ -48,133 +46,82 @@ def main():
         "User-Agent": "GenomicsPipeline/1.0 (Academic Research)",
     }
 
-    print("[SEARCHING] Fetching list of human targets from ENCODE...")
-    targets_url = "https://www.encodeproject.org/search/"
-    target_params = [
-        ("type", "Target"),
-        ("organism.scientific_name", "Homo sapiens"),
+    logging.info(f"Querying ENCODE API for {config['cell_type']}...")
+
+    search_url = "https://www.encodeproject.org/search/"
+    params = [
+        ("type", "Experiment"),
+        ("assay_term_name", config["assay_type"]),
+        ("biosample_ontology.term_name", config["cell_type"]),
+        ("status", "released"),
         ("format", "json"),
         ("limit", "all"),
-        ("field", "name"),
-        ("field", "label"),
+        ("field", "@id"),
+        ("field", "target"),
+        ("field", "files"),
+        ("field", "audit"),
     ]
 
-    response = session.get(
-        targets_url, params=target_params, headers=headers, timeout=60
-    )
+    response = session.get(search_url, params=params, headers=headers, timeout=60)
     if response.status_code != 200:
-        print(f"[ERROR] Failed to fetch targets list (Status: {response.status_code})")
+        logging.error(f"API request failed (Status: {response.status_code})")
         sys.exit(1)
 
-    targets = response.json().get("@graph", [])
-    print(
-        f"[INFO] Found {len(targets)} human targets. Querying {snakemake.config['cell_type']} ChIP-seq per target..."
-    )
+    experiments = response.json().get("@graph", [])
+    logging.info(f"Successfully retrieved metadata for {len(experiments)} experiments")
 
     success_count = 0
-    downloaded_targets = set()
 
-    for t in targets:
-        target_label = t.get("label") or t.get("name")
-        target_internal_name = t.get("name")
-        if not target_label or not target_internal_name:
+    for exp in experiments:
+        if "ERROR" in exp.get("audit", {}):
             continue
 
-        clean_target = target_label.split("-")[0]
-        if clean_target in downloaded_targets:
+        target_obj = exp.get("target", {})
+        if not target_obj:
             continue
 
-        exp_search_url = "https://www.encodeproject.org/search/"
-        exp_params = [
-            ("type", "Experiment"),
-            ("assay_term_name", snakemake.config["assay_type"]),
-            ("biosample_ontology.term_name", snakemake.config["cell_type"]),
-            ("target.name", f"/targets/{target_internal_name}/"),
-            ("status", "released"),
-            ("format", "json"),
-            ("limit", "5"),
-            ("field", "@id"),
-            ("field", "files"),
-            ("field", "audit"),
-        ]
-
-        exp_res = session.get(
-            exp_search_url, params=exp_params, headers=headers, timeout=30
-        )
-        if exp_res.status_code != 200:
+        target_name = target_obj.get("label")
+        if not target_name:
             continue
 
-        experiments = exp_res.json().get("@graph", [])
-        if not experiments:
-            continue
+        for f in exp.get("files", []):
+            if (
+                f.get("file_format") == "bed"
+                and f.get("file_format_type") == "narrowPeak"
+                and f.get("output_type") == "IDR thresholded peaks"
+                and f.get("assembly") == config["assembly"]
+                and f.get("status") == "released"
+            ):
+                bed_file_url = f"https://www.encodeproject.org{f['href']}"
+                file_acc = f["accession"]
 
-        found_for_target = False
-        for exp in experiments:
-            if found_for_target:
-                break
-            if "ERROR" in exp.get("audit", {}):
-                continue
+                dest_path = os.path.join(outdir, f"{target_name}_{file_acc}.bed.gz")
 
-            for f in exp.get("files", []):
-                if (
-                    f.get("file_format") == "bed"
-                    and f.get("output_type") == "optimal idr thresholded peaks"
-                    and f.get("assembly") == assembly_query
-                    and f.get("status") == "released"
-                ):
-                    bed_file_url = f"https://www.encodeproject.org{f['href']}"
-                    file_acc = f["accession"]
-
-                    dest_path = os.path.join(
-                        outdir, f"{clean_target}_{file_acc}.bed.gz"
-                    )
-
-                    if os.path.exists(dest_path):
-                        peak_count = count_gzipped_lines(dest_path)
-                        if peak_count >= snakemake.config["min_peaks"]:
-                            print(
-                                f"[INFO] {clean_target} already secured ({file_acc}). Skipping."
-                            )
-                            success_count += 1
-                            downloaded_targets.add(clean_target)
-                            found_for_target = True
-                            break
-                        else:
-                            os.remove(dest_path)
-
-                    print(f"[DOWNLOADING] {clean_target} ({file_acc}) -> {dest_path}")
-                    try:
-                        file_res = session.get(bed_file_url, stream=True, timeout=60)
-                        file_res.raise_for_status()
-                        with open(dest_path, "wb") as out_f:
-                            for chunk in file_res.iter_content(chunk_size=8192):
-                                out_f.write(chunk)
-                    except requests.exceptions.RequestException as e:
-                        print(
-                            f"[WARNING] Network error downloading {file_acc}: {e}. Skipping."
-                        )
-                        if os.path.exists(dest_path):
-                            os.remove(dest_path)
-                        continue
-
-                    peak_count = count_gzipped_lines(dest_path)
-                    if peak_count < snakemake.config["min_peaks"]:
-                        print(
-                            f"[REJECTED] {clean_target} ({file_acc}) has only {peak_count} peaks. Deleting."
-                        )
-                        os.remove(dest_path)
-                        continue
-
-                    print(
-                        f"[SUCCESS] {clean_target} ({file_acc}) passed with {peak_count} peaks."
-                    )
+                if os.path.exists(dest_path):
                     success_count += 1
-                    downloaded_targets.add(clean_target)
-                    found_for_target = True
-                    time.sleep(0.1)
                     break
 
-    print(f"[COMPLETE] Downloaded {success_count} valid peak files into '{outdir}'.")
+                logging.info(f"Downloading {target_name} ({file_acc}) -> {dest_path}")
+                file_res = session.get(bed_file_url, stream=True, timeout=60)
+
+                with open(dest_path, "wb") as out_f:
+                    for chunk in file_res.iter_content(chunk_size=8192):
+                        out_f.write(chunk)
+
+                peak_count = count_gzipped_lines(dest_path)
+                if peak_count < config["min_peaks"]:
+                    logging.info(
+                        f"{target_name} ({file_acc}) has only {peak_count} peaks (Threshold: {config['min_peaks']}). Deleting."
+                    )
+                    os.remove(dest_path)
+                    continue
+
+                logging.info(f"{target_name} ({file_acc}) has {peak_count} peaks.")
+                success_count += 1
+                time.sleep(0.1)
+                break
+
+    logging.info(f"Downloaded {success_count} valid peak files into '{outdir}'.")
 
     with open(snakemake.output.sentinel, "w") as f:
         f.write("done")

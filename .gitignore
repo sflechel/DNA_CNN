@@ -8,8 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
-
-data/
+.snakemake
+data
 wandb/
 *.log
 .env
