@@ -34,9 +34,9 @@ def one_hot_encode_sequences(seqs: list[str]) -> NDArray[np.float32]:
 
     lookup = np.zeros([256, 4], dtype=np.float32)
     lookup[ord("A")] = [1, 0, 0, 0]
-    lookup[ord("T")] = [0, 1, 0, 0]
-    lookup[ord("C")] = [0, 0, 1, 0]
-    lookup[ord("G")] = [0, 0, 0, 1]
+    lookup[ord("C")] = [0, 1, 0, 0]
+    lookup[ord("G")] = [0, 0, 1, 0]
+    lookup[ord("T")] = [0, 0, 0, 1]
 
     ascii_matrix = np.frombuffer("".join(seqs).encode("ascii"), dtype=np.uint8).reshape(
         num_seqs, seq_len
