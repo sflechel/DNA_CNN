@@ -1,8 +1,24 @@
 configfile: "config.yaml"
 
+CHROMS=[f"chr{i}" for i in range(1,23)] + ["chrX", "chrY"]
+
 rule all:
     input:
-        "data/processed/target_ids.json"
+        pos_h5s=expand("data/processed/tensors/{chrom}_pos.h5", chrom=CHROMS)
+
+rule extract_positives:
+    input:
+        fa="data/fasta/hg38.fa",
+        master_bed="data/processed/master.bed",
+        target_ids="data/processed/target_ids.json"
+    output:
+        h5="data/processed/tensors/{chrom}_pos.h5",
+        stats="data/processed/tensors/{chrom}_stats.h5"
+    params:
+        window_size=1100,
+        inner_size=1100
+    script:
+        "scripts/extract_positives.py"
 
 rule map_targets:
     input:
