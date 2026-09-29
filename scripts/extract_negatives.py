@@ -7,7 +7,7 @@ from pysam import FastaFile
 import random
 import bisect
 
-from scripts.utils import get_gc_content, load_chrom_peaks
+from scripts.utils import get_gc_content, load_chrom_peaks, one_hot_encode_sequences
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,8 +41,24 @@ def is_excluded(start: int, end: int, zones: list[tuple[int, int]]) -> bool:
     return False
 
 
-def find_and_pop_gc_match(candidate_gc: float, gcs: list[float]) -> float:
-    return candidate_gc
+def find_and_pop_gc_match(
+    candidate: float, gcs: list[float], tolerance: float
+) -> float | None:
+    if not gcs:
+        return None
+
+    id: int = bisect.bisect_right(gcs, candidate)
+    best_gc_id: int | None = None
+
+    if id != 0 and abs(gcs[id - 1] - candidate) < abs(gcs[id] - candidate):
+        best_gc_id = id - 1
+    else:
+        best_gc_id = id
+
+    if abs(gcs[best_gc_id] - candidate) <= tolerance:
+        return gcs.pop(best_gc_id)
+    else:
+        return None
 
 
 def extract_negatives(
@@ -80,11 +96,12 @@ def extract_negatives(
             exit(1)
         chrom_len: int = genome.get_reference_length(chrom)
 
+        seqs: list[str] = []
         pos_gcs: list[float] = sorted(stats["pos_gc_content"])
         attempts: int = 0
         max_attempts: int = 200
 
-        while len(pos_gc) > 0 and attempts < max_attempts:
+        while len(pos_gcs) > 0 and attempts < max_attempts:
             attempts += 1
             seq_start = random.randint(0, chrom_len - window_size)
             seq_end = seq_start + window_size
@@ -97,7 +114,31 @@ def extract_negatives(
                 continue
 
             seq_gc: float = get_gc_content(seq_str)
-            matched_gc: float = find_and_pop_gc_match(seq_gc, pos_gcs)
+            matched_gc: float | None = find_and_pop_gc_match(
+                seq_gc, pos_gcs, gc_tolerance
+            )
+            if matched_gc is not None:
+                seqs.append(seq_str)
+
+    os.makedirs(os.path.dirname(h5), exist_ok=True)
+    if not seqs:
+        with h5py.File(h5, "w") as h5file:
+            h5file.create_dataset("inputs", shape=(0, 4, window_size), dtype=np.float32)
+            h5file.create_dataset("targets", shape=(0, num_targets), dtype=np.float32)
+        logging.warning(
+            f"No valid sequences found for {chrom}. Creating empty h5 dataset"
+        )
+        exit(1)
+
+    with h5py.File(h5, "w") as h5file:
+        h5file.create_dataset(
+            "inputs", data=one_hot_encode_sequences(seqs), compression="gzip"
+        )
+        h5file.create_dataset(
+            "targets",
+            data=np.zeros([len(seqs), num_targets], dtype=np.float32),
+            compression="gzip",
+        )
 
 
 def main() -> None:
