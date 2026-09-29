@@ -10,7 +10,7 @@ logging.basicConfig(
 
 
 def main():
-    beds_dir = snakemake.params.beds_dir
+    beds_dir = snakemake.config.beds_dir
     output_bed = snakemake.output.master_bed
 
     os.makedirs(os.path.dirname(output_bed), exist_ok=True)
@@ -39,6 +39,9 @@ def main():
                         chrom.startswith("chr")
                         and (chrom[3:].isdigit() or chrom[3:] in ["X", "Y"])
                     ):
+                        logging.warning(
+                            f"Nonstandard chromosome name {chrom}, dropping"
+                        )
                         continue
 
                     out_f.write(f"{chrom}\t{start}\t{end}\t{target_name}\n")

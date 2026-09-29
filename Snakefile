@@ -6,6 +6,17 @@ rule all:
     input:
         pos_h5s=expand("data/processed/tensors/{chrom}_pos.h5", chrom=CHROMS)
 
+rule extract_negatives
+    input:
+        fa="data/fasta/hg38.fa"
+        master_bed="data/processed/master.bed"
+        pos_stats="data/processed/tensors/{chrom}_stats.json"
+        target_ids="data/processed/target_ids.json"
+    output:
+        h5="data/processed/tensors/{chrom}_neg.h5"
+    script:
+        "scripts/extract_negatives.py"
+
 rule extract_positives:
     input:
         fa="data/fasta/hg38.fa",
@@ -14,9 +25,6 @@ rule extract_positives:
     output:
         h5="data/processed/tensors/{chrom}_pos.h5",
         stats="data/processed/tensors/{chrom}_stats.json"
-    params:
-        window_size=1100,
-        inner_size=1100
     script:
         "scripts/extract_positives.py"
 
@@ -33,8 +41,6 @@ rule merge_all:
         sentinel="data/beds/.download_complete"
     output:
         master_bed="data/processed/master.bed"
-    params:
-        beds_dir="data/beds"
     script:
         "scripts/merge_beds.py"
 

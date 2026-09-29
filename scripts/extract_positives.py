@@ -55,6 +55,7 @@ def extract_positives(
     num_targets: int = len(ids["target_list"])
 
     peaks = load_chrom_peaks(master_bed, chrom, ids["targets_to_ids"])
+    # load_chrom_peaks return a list sorted by peak starts
     if not peaks:
         logging.error(f"Found no peaks for chromosome {chrom}")
 
@@ -114,8 +115,8 @@ def extract_positives(
 
 def main() -> None:
     chrom: str = snakemake.wildcards.chrom
-    window_size: int = snakemake.params.window_size
-    inner_size: int = snakemake.params.inner_size
+    window_size: int = snakemake.config.window_size
+    inner_size: int = snakemake.config.inner_size
 
     target_ids: str = snakemake.input.target_ids
     master_bed: str = snakemake.input.master_bed
