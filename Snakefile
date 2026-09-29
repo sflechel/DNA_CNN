@@ -21,7 +21,7 @@ rule merge_tensors:
         "scripts/merge_tensors.py"
 
 
-rule extract_negatives
+rule extract_negatives:
     input:
         fa="data/fasta/hg38.fa",
         master_bed="data/processed/master.bed",

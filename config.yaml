@@ -16,8 +16,10 @@ validation_chroms:
 test_chroms:
   - "chr22"
 
+min_peak_warning: 100
+
 # Output directories
-beds_outdir: "data/beds"
+beds_dir: "data/beds"
 fasta_outdir: "data/fasta"
 
 # file coordinates

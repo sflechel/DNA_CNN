@@ -115,8 +115,8 @@ def extract_positives(
 
 def main() -> None:
     chrom: str = snakemake.wildcards.chrom
-    window_size: int = snakemake.config.window_size
-    inner_size: int = snakemake.config.inner_size
+    window_size: int = snakemake.config["window_size"]
+    inner_size: int = snakemake.config["inner_size"]
 
     target_ids: str = snakemake.input.target_ids
     master_bed: str = snakemake.input.master_bed

@@ -10,7 +10,7 @@ logging.basicConfig(
 
 
 def main():
-    beds_dir = snakemake.config.beds_dir
+    beds_dir = snakemake.config["beds_dir"]
     output_bed = snakemake.output.master_bed
 
     os.makedirs(os.path.dirname(output_bed), exist_ok=True)

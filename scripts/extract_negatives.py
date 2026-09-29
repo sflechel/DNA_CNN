@@ -75,7 +75,7 @@ def extract_negatives(
         stats = json.load(file)
     with open(target_ids, "r") as file:
         ids = json.load(file)
-    num_targets: int = len(ids["count"])
+    num_targets: int = len(ids["target_list"])
 
     nb_peaks: int = stats["count"]
     if nb_peaks <= 0:
@@ -144,8 +144,8 @@ def extract_negatives(
 def main() -> None:
     extract_negatives(
         chrom=snakemake.wildcards.chrom,
-        gc_tolerance=snakemake.config.gc_tolerance,
-        window_size=snakemake.config.window_size,
+        gc_tolerance=snakemake.config["gc_tolerance"],
+        window_size=snakemake.config["window_size"],
         fa=snakemake.input.fa,
         master_bed=snakemake.input.master_bed,
         pos_stats=snakemake.input.pos_stats,
