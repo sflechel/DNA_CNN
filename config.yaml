@@ -9,6 +9,13 @@ window_size: 1100
 inner_size: 1000
 gc_tolerance: 0.03
 
+# Dataset split
+validation_chroms:
+  - "chr21"
+
+test_chroms:
+  - "chr22"
+
 # Output directories
 beds_outdir: "data/beds"
 fasta_outdir: "data/fasta"
