@@ -23,7 +23,7 @@ rule merge_tensors:
 rule extract_negatives:
     input:
         fa="data/fasta/hg38.fa",
-        master_bed="data/processed/master.bed",
+        master_bed="data/processed/filtered_master.bed",
         pos_stats="data/processed/tensors/{chrom}_stats.json",
         target_ids="data/processed/target_ids.json"
     output:
@@ -34,7 +34,7 @@ rule extract_negatives:
 rule extract_positives:
     input:
         fa="data/fasta/hg38.fa",
-        master_bed="data/processed/master.bed",
+        master_bed="data/processed/filtered_master.bed",
         target_ids="data/processed/target_ids.json"
     output:
         h5="data/processed/tensors/{chrom}_pos.h5",

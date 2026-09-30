@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from numpy._typing import NDArray
+from numpy.typing import NDArray
 import numpy as np
 from pysam import FastaFile
 
@@ -79,6 +79,7 @@ def merge_peaks(
     target_list: list[str],
     targets_to_ids: dict[str, int],
     window_size: int,
+    inner_size: int,
 ) -> list[tuple[str, int, int, NDArray[np.int32]]]:
 
     peaks_per_chrom: dict[str, list[tuple[int, int, int]]] = {}
@@ -103,35 +104,35 @@ def merge_peaks(
         exit(1)
 
     new_peaks: list[tuple[str, int, int, NDArray[np.int32]]] = []
-    for chrom in peaks_per_chrom.keys():
-        peaks = peaks_per_chrom[chrom]
-        clusters = cluster_peaks(peaks, max_span=window_size)
-
-        with FastaFile(fa) as genome:
+    with FastaFile(fa) as genome:
+        for chrom in peaks_per_chrom.keys():
             if chrom not in genome.references:
                 logging.error(f"Chromosome {chrom} not in genome")
                 exit(1)
             chrom_len: int = genome.get_reference_length(chrom)
 
-        for cluster in clusters:
-            cluster_start = cluster[0][0]
-            cluster_end = cluster[-1][1]
+            peaks = peaks_per_chrom[chrom]
+            peaks.sort(key=lambda x: x[1])
+            clusters = cluster_peaks(peaks, max_span=inner_size)
 
-            center: int = (cluster_start + cluster_end) // 2
-            new_peak_start: int = center - (window_size // 2)
-            new_peak_end: int = center + (window_size // 2)
+            for cluster in clusters:
+                cluster_start = cluster[0][0]
+                cluster_end = cluster[-1][1]
 
-            if new_peak_start < 0 or new_peak_end > chrom_len:
-                continue
+                center: int = (cluster_start + cluster_end) // 2
+                new_peak_start: int = center - (window_size // 2)
+                new_peak_end: int = center + (window_size // 2)
 
-            peak_targets: NDArray[np.integer] = np.zeros(
-                [len(target_list)], dtype=np.int32
-            )
-            for peak in cluster:
-                peak_targets[peak[2]] += 1
+                if new_peak_start < 0 or new_peak_end > chrom_len:
+                    continue
 
-            new_peaks.append((chrom, new_peak_start, window_size, peak_targets))
-            # .bed format expect chromosome, start pos, end offset relative to start. we add the label
+                peak_targets: NDArray[np.integer] = np.zeros(
+                    [len(target_list)], dtype=np.int32
+                )
+                for peak in cluster:
+                    peak_targets[peak[2]] = 1
+
+                new_peaks.append((chrom, new_peak_start, new_peak_end, peak_targets))
 
     return new_peaks
 
@@ -180,8 +181,6 @@ def write_targets(
 
 def main() -> None:
     bed_path: str = snakemake.input.master_bed
-    target_list: list[str]
-    targets_to_ids: dict[str, int]
     target_list, targets_to_ids = map_targets_to_ids(bed_path=bed_path)
 
     merged_peaks = merge_peaks(
@@ -189,11 +188,12 @@ def main() -> None:
         target_list=target_list,
         targets_to_ids=targets_to_ids,
         window_size=snakemake.config["window_size"],
+        inner_size=snakemake.config["inner_size"],
         fa=smakemake.input.fa,
     )
 
     filtered_peaks, filtered_list, filtered_ids = filter_peaks(
-        min_peaks=snakemake.config.min_peaks_filter,
+        min_peaks=snakemake.config["min_peaks_filter"],
         peaks=merged_peaks,
         target_list=target_list,
     )

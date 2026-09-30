@@ -16,7 +16,7 @@ logging.basicConfig(
 
 
 def build_exclusion_zones(
-    peaks: list[tuple[int, int, int]], window_size: int
+    peaks: list[tuple[int, int, list[int]]], window_size: int
 ) -> list[tuple[int, int]]:
 
     all_zones: list[tuple[int, int]] = [
@@ -90,7 +90,7 @@ def extract_negatives(
         logging.warning(f"No peaks found for {chrom}. Creating empty h5 dataset")
         exit(1)
 
-    peaks = load_chrom_peaks(master_bed, chrom, ids["targets_to_ids"])
+    peaks = load_chrom_peaks(master_bed, chrom)
     # load chrom peaks return a sorted list
     exclusion_zones = build_exclusion_zones(peaks, window_size)
 

@@ -3,22 +3,23 @@ import numpy as np
 
 
 def load_chrom_peaks(
-    bed_path: str, target_chrom: str, targets_to_ids: dict[str, int]
-) -> list[tuple[int, int, int]]:
+    bed_path: str, target_chrom: str
+) -> list[tuple[int, int, list[int]]]:
     peaks = []
     with open(bed_path, "r") as file:
         for line in file:
             parts: list[str] = line.strip().split()
             if len(parts) < 4:
                 continue
-            chrom, start, end, target_name = (
+            chrom, start, end, target_ids_str = (
                 parts[0],
                 int(parts[1]),
                 int(parts[2]),
                 parts[3],
             )
-            if chrom == target_chrom and target_name in targets_to_ids:
-                peaks.append((start, end, targets_to_ids[target_name]))
+            target_ids: list[int] = list(map(int, target_ids_str.split("_")))
+            if chrom == target_chrom:
+                peaks.append((start, end, target_ids))
 
     peaks.sort(key=lambda x: x[0])
     return peaks
