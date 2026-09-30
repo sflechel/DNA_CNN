@@ -31,7 +31,6 @@ def merge_beds(beds_dir: str, output_bed: str):
 
                     chrom, start, end = parts[0], parts[1], parts[2]
 
-                    # Standardize chromosome formatting (e.g., skip alt contigs if desired)
                     if not (
                         chrom.startswith("chr")
                         and (chrom[3:].isdigit() or chrom[3:] in ["X", "Y"])

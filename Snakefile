@@ -42,13 +42,15 @@ rule extract_positives:
     script:
         "scripts/extract_positives.py"
 
-rule map_targets:
+rule filter_and_id_targets:
     input:
         master_bed="data/processed/master.bed"
+        fa="data/fasta/hg38.fa"
     output:
         target_ids="data/processed/target_ids.json"
+        filtered_master_bed="data/processed/filtered_master.bed"
     script:
-        "scripts/map_targets_to_id.py"
+        "scripts/filter_and_id_targets.py"
 
 rule merge_beds:
     input:
