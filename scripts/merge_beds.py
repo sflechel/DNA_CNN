@@ -9,10 +9,7 @@ logging.basicConfig(
 )
 
 
-def main():
-    beds_dir = snakemake.config["beds_dir"]
-    output_bed = snakemake.output.master_bed
-
+def merge_beds(beds_dir: str, output_bed: str):
     os.makedirs(os.path.dirname(output_bed), exist_ok=True)
 
     bed_files = glob.glob(os.path.join(beds_dir, "*.bed.gz"))
@@ -48,6 +45,12 @@ def main():
                     total_peaks += 1
 
     logging.info(f"Consolidated {total_peaks} total peak records into '{output_bed}'.")
+
+
+def main() -> None:
+    merge_beds(
+        beds_dir=snakemake.config["beds_dir"], output_bed=snakemake.output.output_bed
+    )
 
 
 if __name__ == "__main__":

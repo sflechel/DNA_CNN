@@ -75,7 +75,7 @@ def process_and_save_dataset(
                 pos += num_samples
 
     perm = np.random.permutation(total_samples)
-    chunk_size = 10_000  # adjust based on available RAM
+    chunk_size = 100000000  # adjust based on available RAM
 
     with h5py.File(tmp_name, "r") as src, h5py.File(output, "w") as dst:
         dst_inputs = dst.create_dataset(
