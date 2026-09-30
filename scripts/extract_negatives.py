@@ -20,7 +20,7 @@ def build_exclusion_zones(
 ) -> list[tuple[int, int]]:
 
     all_zones: list[tuple[int, int]] = [
-        (min(0, peak[0] - window_size), peak[1] + window_size) for peak in peaks
+        (max(0, peak[0] - window_size), peak[1] + window_size) for peak in peaks
     ]
 
     merged: list[tuple[int, int]] = [all_zones[0]]
@@ -50,7 +50,11 @@ def find_and_pop_gc_match(
     id: int = bisect.bisect_right(gcs, candidate)
     best_gc_id: int | None = None
 
-    if id != 0 and abs(gcs[id - 1] - candidate) < abs(gcs[id] - candidate):
+    if id == 0:
+        best_gc_id = id
+    elif id == len(gcs):
+        best_gc_id = id - 1
+    elif abs(gcs[id - 1] - candidate) < abs(gcs[id] - candidate):
         best_gc_id = id - 1
     else:
         best_gc_id = id
@@ -93,7 +97,7 @@ def extract_negatives(
     with FastaFile(fa) as genome:
         if chrom not in genome.references:
             logging.error(f"Chromosome {chrom} not in genome")
-            exit(1)
+            exit(0)
         chrom_len: int = genome.get_reference_length(chrom)
 
         seqs: list[str] = []
@@ -128,7 +132,7 @@ def extract_negatives(
         logging.warning(
             f"No valid sequences found for {chrom}. Creating empty h5 dataset"
         )
-        exit(1)
+        exit(0)
 
     with h5py.File(h5, "w") as h5file:
         h5file.create_dataset(

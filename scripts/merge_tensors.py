@@ -16,12 +16,14 @@ def warn_if_few_peaks(
     y_data: NDArray[np.float32],
     min_peak_warning: int,
     target_list: list[str],
-    name: str,
+    dataset_name: str,
 ) -> None:
     sum_per_target: NDArray[np.float32] = y_data.sum(axis=0)
     for name, count in zip(target_list, sum_per_target):
         if count < min_peak_warning:
-            logging.warning(f"Only {count} peaks in dataset {name}")
+            logging.warning(
+                f"Only {count} peaks for target {name} in dataset {dataset_name}"
+            )
 
 
 def process_and_save_dataset(
