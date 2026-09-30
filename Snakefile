@@ -44,10 +44,10 @@ rule extract_positives:
 
 rule filter_and_id_targets:
     input:
-        master_bed="data/processed/master.bed"
+        master_bed="data/processed/master.bed",
         fa="data/fasta/hg38.fa"
     output:
-        target_ids="data/processed/target_ids.json"
+        target_ids="data/processed/target_ids.json",
         filtered_master_bed="data/processed/filtered_master.bed"
     script:
         "scripts/filter_and_id_targets.py"

@@ -48,7 +48,7 @@ def merge_beds(beds_dir: str, output_bed: str):
 
 def main() -> None:
     merge_beds(
-        beds_dir=snakemake.config["beds_dir"], output_bed=snakemake.output.output_bed
+        beds_dir=snakemake.config["beds_dir"], output_bed=snakemake.output.master_bed
     )
 
 

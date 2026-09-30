@@ -44,6 +44,7 @@ def filter_peaks(
     surviving_targets_mask: NDArray[np.bool_] = target_counts >= min_peaks
 
     for name, count, keep in zip(target_list, target_counts, surviving_targets_mask):
+        logging.info(f"Target {name} has {count} peaks")
         if not keep:
             logging.info(f"Only {count} peaks for target {name}! Dropping it")
 
@@ -189,7 +190,7 @@ def main() -> None:
         targets_to_ids=targets_to_ids,
         window_size=snakemake.config["window_size"],
         inner_size=snakemake.config["inner_size"],
-        fa=smakemake.input.fa,
+        fa=snakemake.input.fa,
     )
 
     filtered_peaks, filtered_list, filtered_ids = filter_peaks(
@@ -202,10 +203,15 @@ def main() -> None:
         merged_peaks=filtered_peaks,
         target_list=filtered_list,
         targets_to_ids=filtered_ids,
-        targets_path=skamemake.output.target_ids,
+        targets_path=snakemake.output.target_ids,
         bed_path=snakemake.output.filtered_master_bed,
     )
 
 
 if __name__ == "__main__":
     main()
+
+# to check for tomfoolery:
+# grep '_' data/processed/filtered_master.bed | head -n 1
+## then, replacing with the coordinates you got:
+# grep -P "^chr1\t" data/processed/master.bed | awk '$2 >= 1000000 && $3 <= 1005000'

@@ -1,5 +1,5 @@
 import pytest
-from scripts.extract_positives import cluster_peaks
+from scripts.filter_and_id_targets import cluster_peaks
 
 
 def test_single_peak_clustering():

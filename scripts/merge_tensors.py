@@ -4,26 +4,11 @@ import logging
 from typing import cast
 import h5py
 import numpy as np
-from numpy._typing import NDArray
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
-
-
-def warn_if_few_peaks(
-    y_data: NDArray[np.float32],
-    min_peak_warning: int,
-    target_list: list[str],
-    dataset_name: str,
-) -> None:
-    sum_per_target: NDArray[np.float32] = y_data.sum(axis=0)
-    for name, count in zip(target_list, sum_per_target):
-        if count < min_peak_warning:
-            logging.warning(
-                f"Only {count} peaks for target {name} in dataset {dataset_name}"
-            )
 
 
 def process_and_save_dataset(
@@ -32,7 +17,6 @@ def process_and_save_dataset(
     targets: list[str],
     name: str,
     window_size: int,
-    min_peak_warning: int,
 ) -> None:
     num_targets: int = len(targets)
     total_samples: int = 0
@@ -114,7 +98,6 @@ def merge_tensors(
     val_chroms: list[str],
     test_chroms: list[str],
     window_size: int,
-    min_peak_warning: int,
     target_ids: str,
     pos_h5s: list[str],
     neg_h5s: list[str],
@@ -146,7 +129,6 @@ def merge_tensors(
         targets=targets,
         name="val",
         window_size=window_size,
-        min_peak_warning=min_peak_warning,
     )
     process_and_save_dataset(
         filepaths=split_files["test"],
@@ -154,7 +136,6 @@ def merge_tensors(
         targets=targets,
         name="test",
         window_size=window_size,
-        min_peak_warning=min_peak_warning,
     )
     process_and_save_dataset(
         filepaths=split_files["train"],
@@ -162,7 +143,6 @@ def merge_tensors(
         targets=targets,
         name="train",
         window_size=window_size,
-        min_peak_warning=min_peak_warning,
     )
 
 
@@ -171,7 +151,6 @@ def main() -> None:
         val_chroms=snakemake.config["validation_chroms"],
         test_chroms=snakemake.config["test_chroms"],
         window_size=snakemake.config["window_size"],
-        min_peak_warning=snakemake.config["min_peak_warning"],
         target_ids=snakemake.input.target_ids,
         pos_h5s=snakemake.input.pos_h5s,
         neg_h5s=snakemake.input.neg_h5s,

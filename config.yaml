@@ -16,7 +16,7 @@ validation_chroms:
 test_chroms:
   - "chr22"
 
-min_peaks_filter: 1000
+min_peaks_filter: 3000
 
 # Output directories
 beds_dir: "data/beds"

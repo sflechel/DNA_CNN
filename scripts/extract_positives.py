@@ -39,10 +39,9 @@ def extract_positives(
         if chrom not in genome.references:
             logging.error(f"Chromosome {chrom} not in genome")
             exit(1)
-
         for peak in peaks:
             seq_str: str = genome.fetch(chrom, peak[0], peak[1]).upper()
-            if len(seq_str) != window_size or "N" in seq_str:
+            if "N" in seq_str:
                 logging.info("Peak sequence contains N, dropping")
                 continue
 
