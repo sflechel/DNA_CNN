@@ -104,7 +104,7 @@ def process_and_save_dataset(
 
             unsorted = np.argsort(sort_order)
             dst_inputs[i : i + chunk_size] = tmp_inputs[unsorted]  # type: ignore[index]
-            dst_targets[i + i + chunk_size] = tmp_targets[unsorted]  # type: ignore[index]
+            dst_targets[i : i + chunk_size] = tmp_targets[unsorted]  # type: ignore[index]
 
     os.remove(tmp_name)
     logging.info(f"Wrote {total_samples} samples to {name} dataset at {output}")

@@ -20,7 +20,6 @@ rule merge_tensors:
     script:
         "scripts/merge_tensors.py"
 
-
 rule extract_negatives:
     input:
         fa="data/fasta/hg38.fa",
