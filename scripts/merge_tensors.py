@@ -47,42 +47,66 @@ def process_and_save_dataset(
     else:
         logging.info(f"Dataset {name} has {total_samples} samples")
 
-    X_data: NDArray[np.float32] = np.zeros(
-        [total_samples, 4, window_size], dtype=np.float32
-    )
-    y_data: NDArray[np.float32] = np.zeros(
-        [total_samples, num_targets], dtype=np.float32
-    )
-
-    pos: int = 0
-    for path in filepaths:
-        with h5py.File(path, "r") as file:
-            inputs = cast(h5py.Dataset, file["inputs"])
-            num_samples: int = inputs.shape[0]
-            if num_samples == 0:
-                continue
-            X_data[pos : pos + num_samples] = inputs[:]
-            y_data[pos : pos + num_samples] = cast(h5py.Dataset, file["targets"])[:]
-            pos += num_samples
-
-    warn_if_few_peaks(y_data, min_peak_warning, targets, name)
-
-    if total_samples > 0:
-        permutation: NDArray[np.integer] = np.random.permutation(total_samples)
-        X_data = X_data[permutation]
-        y_data = y_data[permutation]
-
-    os.makedirs(os.path.dirname(output), exist_ok=True)
-    with h5py.File(output, "w") as h5:
-        h5.create_dataset("inputs", data=X_data, compression="gzip")
-        h5.create_dataset("targets", data=y_data, compression="gzip")
-
-        h5.create_dataset(
-            "target_names",
-            data=np.array(targets),
-            dtype=h5py.string_dtype(encoding="utf-8"),
+    tmp_name: str = f"{output}_tmp"
+    with h5py.File(tmp_name, "w") as outfile:
+        sequences = outfile.create_dataset(
+            "inputs",
+            shape=(total_samples, 4, window_size),
+            dtype="uint8",
+            chunks=(256, 4, window_size),
+            compression="lzf",
+        )
+        labels = outfile.create_dataset(
+            "targets",
+            shape=(total_samples, num_targets),
+            dtype="float32",
+            chunks=(256, num_targets),
+            compression="lzf",
         )
 
+        pos = 0
+        for path in filepaths:
+            with h5py.File(path, "r") as infile:
+                inputs = cast(h5py.Dataset, infile["inputs"])
+                trgts = cast(h5py.Dataset, infile["targets"])
+                num_samples: int = inputs.shape[0]
+                sequences[pos : pos + num_samples] = inputs[:]
+                labels[pos : pos + num_samples] = trgts[:]
+                pos += num_samples
+
+    perm = np.random.permutation(total_samples)
+    chunk_size = 10_000  # adjust based on available RAM
+
+    with h5py.File(tmp_name, "r") as src, h5py.File(output, "w") as dst:
+        dst_inputs = dst.create_dataset(
+            "inputs",
+            shape=(total_samples, 4, window_size),
+            dtype="uint8",
+            chunks=(256, 4, window_size),
+            compression="lzf",
+        )
+        dst_targets = dst.create_dataset(
+            "targets",
+            shape=(total_samples, num_targets),
+            dtype="float32",
+            chunks=(256, num_targets),
+            compression="lzf",
+        )
+        dst.create_dataset("target_names", data=targets)
+
+        for i in range(0, total_samples, chunk_size):
+            chunk_perm = perm[i : i + chunk_size]  # sort for sequential HDF5 reads
+            sort_order = np.argsort(chunk_perm)
+            sorted_idx = chunk_perm[sort_order]
+
+            tmp_inputs = src["inputs"][sorted_idx]  # type: ignore[index]
+            tmp_targets = src["targets"][sorted_idx]  # type: ignore[index]
+
+            unsorted = np.argsort(sort_order)
+            dst_inputs[i : i + chunk_size] = tmp_inputs[unsorted]  # type: ignore[index]
+            dst_targets[i + i + chunk_size] = tmp_targets[unsorted]  # type: ignore[index]
+
+    os.remove(tmp_name)
     logging.info(f"Wrote {total_samples} samples to {name} dataset at {output}")
 
 
