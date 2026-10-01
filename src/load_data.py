@@ -78,22 +78,23 @@ class DNASeqDataset(Dataset):
         X_raw: NDArray[np.float32] = inputs[index].astype(np.float32)
         y: Tensor = torch.from_numpy(targets[index].astype(np.float32))
 
-        center = self.window_size // 2
+        # center = self.window_size // 2
+        #
+        # if self.augment_data and self.jitter > 0:
+        #     offset = np.random.randint(-self.jitter, self.jitter + 1)
+        # else:
+        #     offset = 0
+        # crop_center = center + offset
+        # start = crop_center - (self.inner_size // 2)
+        # end = start + self.inner_size
+        # X_np: NDArray[np.float32] = X_raw[:, start:end]
+        # X: Tensor = torch.from_numpy(X_np)
 
-        if self.augment_data and self.jitter > 0:
-            offset = np.random.randint(-self.jitter, self.jitter + 1)
-        else:
-            offset = 0
-        crop_center = center + offset
-        start = crop_center - (self.inner_size // 2)
-        end = start + self.inner_size
-        X_np: NDArray[np.float32] = X_raw[:, start:end]
-        X: Tensor = torch.from_numpy(X_np)
+        # if self.augment_data and torch.rand(1).item() > 0.5:
+        #     X = reverse_complement(X)
 
-        if self.augment_data and torch.rand(1).item() > 0.5:
-            X = reverse_complement(X)
-
-        return X, y
+        # return X, y
+        return torch.from_numpy(X_raw), y
 
     def __del__(self):
         if self.h5_file is not None:

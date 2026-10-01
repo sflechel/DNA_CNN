@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 import argparse
 from sklearn.metrics import roc_auc_score, average_precision_score
+from torch.utils.tensorboard import SummaryWriter
 
 
 def apply_weight_norm_constraint(model: DNACNN, lambda3: float) -> None:
@@ -27,6 +28,7 @@ def apply_weight_norm_constraint(model: DNACNN, lambda3: float) -> None:
 
 
 def train(args: argparse.Namespace):
+    writer = SummaryWriter(log_dir="runs")
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
@@ -91,6 +93,7 @@ def train(args: argparse.Namespace):
     seq_len: int = training_dataset.inner_size
     model: DNACNN = DNACNN(num_targets=num_targets, seq_len=seq_len).to(device)
 
+    scaler = torch.amp.GradScaler("cuda")
     criterion = nn.BCEWithLogitsLoss()
 
     optimizer = optim.Adam(
@@ -106,28 +109,37 @@ def train(args: argparse.Namespace):
         running_loss = 0.0
 
         for sequences, labels in training_loader:
-            sequences = sequences.to(device)
-            labels = labels.to(device)
+            sequences = sequences.to(device, non_blocking=True)
+            labels = labels.to(device, non_blocking=True)
+
+            if sequences.size(2) > args.inner_size:
+                max_offset = sequences.size(2) - args.inner_size
+                start_index = torch.randint(0, max_offset + 1, (1,)).item()
+                sequences = sequences[:, :, start_index : start_index + args.inner_size]
+
+            if torch.rand(1).item() > 0.5:
+                sequences = torch.flip(sequences, dims=[1, 2])
 
             optimizer.zero_grad()  # clear out gradients from previous epoch
 
-            predictions, hidden_activation = model.forward_return_hidden(sequences)
+            with torch.amp.autocast("cuda"):
+                predictions, hidden_activation = model.forward_return_hidden(sequences)
 
-            bceloss = criterion(predictions, labels)
-            h_loss = (
-                args.output_decay
-                * torch.norm(hidden_activation, p=1)
-                / sequences.size(0)
-            )
-            loss = bceloss + h_loss
+                bceloss = criterion(predictions, labels)
+                h_loss = (
+                    args.output_decay
+                    * torch.norm(hidden_activation, p=1)
+                    / sequences.size(0)
+                )
+                loss = bceloss + h_loss
 
-            loss.backward()
-
-            optimizer.step()
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
 
             apply_weight_norm_constraint(model, args.neuron_norm_max)
-
             running_loss += loss.item()
+
         avg_loss = nan
         if len(training_loader) != 0:
             avg_loss = running_loss / len(training_loader)
@@ -143,16 +155,24 @@ def train(args: argparse.Namespace):
         with torch.no_grad():
             for validation_sequences, validation_labels in validation_loader:
                 true_batch_size = validation_sequences.size(0)
-                validation_sequences = validation_sequences.to(device)
-                validation_labels = validation_labels.to(device)
+                validation_sequences = validation_sequences.to(
+                    device, non_blocking=True
+                )
+                validation_labels = validation_labels.to(device, non_blocking=True)
 
-                validation_logits = model(validation_sequences)
+                if validation_sequences.size(2) > args.inner_size:
+                    start_idx = (validation_sequences.size(2) - args.inner_size) // 2
+                    validation_sequences = validation_sequences[
+                        :, :, start_idx : start_idx + args.inner_size
+                    ]
+                with torch.amp.autocast("cuda"):
+                    validation_logits = model(validation_sequences)
+                    batch_loss = criterion(validation_logits, validation_labels)
 
-                batch_loss = criterion(validation_logits, validation_labels)
                 validation_loss += batch_loss.item() * validation_sequences.size(0)
                 total_samples += true_batch_size
 
-                probabilities = torch.sigmoid(validation_logits)
+                probabilities = torch.sigmoid(validation_logits.float())
                 validation_predictions = (probabilities >= 0.5).float()
                 correct_predictions += (
                     (validation_predictions == validation_labels).sum().item()
@@ -189,9 +209,14 @@ def train(args: argparse.Namespace):
             logger.info("No progress is being made, aborting")
             break
 
+        writer.add_scalar("Loss/train", avg_loss, epoch)
+        writer.add_scalar("Loss/val", avg_validation_loss, epoch)
+        writer.add_scalar("Metrics/Val_ROC_AUC", val_auroc, epoch)
+        writer.add_scalar("Metrics/Val_PR_AUC", val_prauc, epoch)
         logger.info(
             f"At epoch {epoch + 1} of {args.num_epochs}: "
             f"Training loss: {avg_loss:.4f} | Validation loss: {avg_validation_loss:.4f} | "
             f"Validation accuracy: {validation_accuracy * 100:.2f}% |  Validation ROC-AUC: {val_auroc:.4f} | "
             f"Validation PR-AUC: {val_prauc:.4f}"
         )
+    writer.close()
