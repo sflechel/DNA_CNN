@@ -19,7 +19,12 @@ def reverse_complement(sequences: torch.Tensor) -> torch.Tensor:
 
 class DNASeqDataset(Dataset):
     def __init__(
-        self, h5_filepath: str, augment_data: bool, inner_size: int, jitter: int
+        self,
+        h5_filepath: str,
+        augment_data: bool,
+        inner_size: int,
+        jitter: int,
+        min_positives: int,
     ):
         self.augment_data = augment_data
         self.h5_path = h5_filepath
@@ -43,6 +48,9 @@ class DNASeqDataset(Dataset):
 
             target_names = cast(h5py.Dataset, file["target_names"])
             self.target_names = list(target_names.asstr()[:])
+
+            pos_counts: NDArray[np.integer] = targets[:].sum(axis=0)
+            self.mask = pos_counts >= min_positives
 
         logging.basicConfig(
             level=logging.INFO,

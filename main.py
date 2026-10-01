@@ -14,6 +14,13 @@ def main():
         help="Size of the DNA sequence on which the network trains",
     )
     parser.add_argument(
+        "-min",
+        "--min_positives",
+        type=int,
+        default=100,
+        help="Mininum of a target for it to contribe to validation and test metrics",
+    )
+    parser.add_argument(
         "--jitter",
         type=int,
         default=24,

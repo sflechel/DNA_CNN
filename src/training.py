@@ -8,7 +8,7 @@ import torch.optim as optim
 import logging
 from pathlib import Path
 import argparse
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, average_precision_score
 
 
 def apply_weight_norm_constraint(model: DNACNN, lambda3: float) -> None:
@@ -39,12 +39,14 @@ def train(args: argparse.Namespace):
         augment_data=True,
         inner_size=args.inner_size,
         jitter=args.jitter,
+        min_positives=args.min_positives,
     )
     validation_dataset = DNASeqDataset(
         h5_filepath="data/processed/dataset_validation.h5",
         augment_data=False,
         inner_size=args.inner_size,
         jitter=0,
+        min_positives=args.min_positives,
     )
     # test_dataset = DNASeqDataset(
     #     h5_filepath="data/processed/dataset_test.h5",
@@ -133,12 +135,14 @@ def train(args: argparse.Namespace):
         model.eval()
         validation_loss = 0.0
         correct_predictions = 0
-        total_predictions = 0
+        total_elements = 0
+        total_samples = 0
         all_preds = []
         all_labels = []
 
         with torch.no_grad():
             for validation_sequences, validation_labels in validation_loader:
+                true_batch_size = validation_sequences.size(0)
                 validation_sequences = validation_sequences.to(device)
                 validation_labels = validation_labels.to(device)
 
@@ -146,24 +150,30 @@ def train(args: argparse.Namespace):
 
                 batch_loss = criterion(validation_logits, validation_labels)
                 validation_loss += batch_loss.item() * validation_sequences.size(0)
+                total_samples += true_batch_size
 
                 probabilities = torch.sigmoid(validation_logits)
                 validation_predictions = (probabilities >= 0.5).float()
                 correct_predictions += (
                     (validation_predictions == validation_labels).sum().item()
                 )
-                total_predictions += validation_predictions.size(0)
+                total_elements += validation_predictions.numel()
 
                 all_preds.append(probabilities)
                 all_labels.append(validation_labels)
-        avg_validation_loss = (
-            validation_loss / len(validation_loader) / total_predictions
-        )
-        validation_accuracy = correct_predictions / total_predictions
+
+        avg_validation_loss = validation_loss / total_samples
+        validation_accuracy = correct_predictions / total_elements
 
         all_preds = torch.cat(all_preds, dim=0).cpu().numpy()
         all_labels = torch.cat(all_labels, dim=0).cpu().numpy()
-        val_auroc = roc_auc_score(all_labels, all_preds)
+        filtered_preds = all_preds[:, validation_dataset.mask]
+        filtered_labels = all_labels[:, validation_dataset.mask]
+
+        val_prauc = average_precision_score(
+            filtered_labels, filtered_preds, average="macro"
+        )
+        val_auroc = roc_auc_score(filtered_labels, filtered_preds, average="macro")
 
         scheduler.step(avg_validation_loss)
 
@@ -182,5 +192,6 @@ def train(args: argparse.Namespace):
         logger.info(
             f"At epoch {epoch + 1} of {args.num_epochs}: "
             f"Training loss: {avg_loss:.4f} | Validation loss: {avg_validation_loss:.4f} | "
-            f"Validation accuracy: {validation_accuracy * 100:.2f}% |  Validation ROC-AUC: {val_auroc:.4f}"
+            f"Validation accuracy: {validation_accuracy * 100:.2f}% |  Validation ROC-AUC: {val_auroc:.4f} | "
+            f"Validation PR-AUC: {val_prauc:.4f}"
         )
