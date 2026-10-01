@@ -1,4 +1,6 @@
 from math import nan
+import time
+from numpy import random
 import torch
 from torch.utils.data import DataLoader
 from src.load_data import DNASeqDataset
@@ -12,19 +14,36 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 from torch.utils.tensorboard import SummaryWriter
 
 
-def apply_weight_norm_constraint(model: DNACNN, lambda3: float) -> None:
+def apply_weight_norm_constraint(model: nn.Module, lambda3: float) -> None:
     with torch.no_grad():
         for name, param in model.named_parameters():
             if "weight" not in name:
                 continue
             if param.ndim == 2:
                 l2norm = torch.norm(param, p=2, dim=1, keepdim=True)
-                clamped = torch.clamp(l2norm, max=lambda3)
-                param.copy_(param * (clamped / (l2norm + 1e-8)))
             elif param.ndim == 3:
                 l2norm = torch.norm(param, p=2, dim=[1, 2], keepdim=True)
-                clamped = torch.clamp(l2norm, max=lambda3)
-                param.copy_(param * clamped / (l2norm + 1e-8))
+            else:
+                continue
+            violators = l2norm > lambda3
+            if violators.any():
+                scale = lambda3 / (l2norm + 1e-8)
+                param.mul_(torch.where(violators, scale, 1.0))
+
+
+# def apply_weight_norm_constraint(model: DNACNN, lambda3: float) -> None:
+#     with torch.no_grad():
+#         for name, param in model.named_parameters():
+#             if "weight" not in name:
+#                 continue
+#             if param.ndim == 2:
+#                 l2norm = torch.norm(param, p=2, dim=1, keepdim=True)
+#                 clamped = torch.clamp(l2norm, max=lambda3)
+#                 param.copy_(param * (clamped / (l2norm + 1e-8)))
+#             elif param.ndim == 3:
+#                 l2norm = torch.norm(param, p=2, dim=[1, 2], keepdim=True)
+#                 clamped = torch.clamp(l2norm, max=lambda3)
+#                 param.copy_(param * clamped / (l2norm + 1e-8))
 
 
 def train(args: argparse.Namespace):
@@ -58,14 +77,23 @@ def train(args: argparse.Namespace):
     # )
 
     batch_size: int = training_dataset.chunk_size * args.batch_size_multiplier
+    # training_loader = DataLoader(
+    #     training_dataset,
+    #     batch_size=batch_size,
+    #     shuffle=True,
+    #     num_workers=args.num_workers,
+    #     pin_memory=True,
+    #     persistent_workers=True,
+    # )
+
     training_loader = DataLoader(
         training_dataset,
         batch_size=batch_size,
         shuffle=True,
         num_workers=args.num_workers,
         pin_memory=True,
+        persistent_workers=True,
     )
-
     validation_loader = DataLoader(
         validation_dataset,
         batch_size=batch_size,
@@ -97,7 +125,10 @@ def train(args: argparse.Namespace):
     criterion = nn.BCEWithLogitsLoss()
 
     optimizer = optim.Adam(
-        model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay
+        model.parameters(),
+        lr=args.learning_rate,
+        weight_decay=args.weight_decay,
+        fused=True,
     )
 
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=3)
@@ -105,19 +136,21 @@ def train(args: argparse.Namespace):
     best_val_loss = float("inf")
     patience_counter = 0
     for epoch in range(args.num_epochs):
+        t0: float = time.time()
         model.train()
-        running_loss = 0.0
+
+        running_loss = torch.tensor(0.0, device=device)
 
         for sequences, labels in training_loader:
-            sequences = sequences.to(device, non_blocking=True)
-            labels = labels.to(device, non_blocking=True)
+            sequences = sequences.to(device, non_blocking=True).float()
+            labels = labels.to(device, non_blocking=True).float()
 
             if sequences.size(2) > args.inner_size:
                 max_offset = sequences.size(2) - args.inner_size
                 start_index = torch.randint(0, max_offset + 1, (1,)).item()
                 sequences = sequences[:, :, start_index : start_index + args.inner_size]
 
-            if torch.rand(1).item() > 0.5:
+            if random.random() > 0.5:
                 sequences = torch.flip(sequences, dims=[1, 2])
 
             optimizer.zero_grad()  # clear out gradients from previous epoch
@@ -138,8 +171,10 @@ def train(args: argparse.Namespace):
             scaler.update()
 
             apply_weight_norm_constraint(model, args.neuron_norm_max)
-            running_loss += loss.item()
+            running_loss += loss.detach()
 
+        train_time: float = time.time() - t0
+        t1: float = time.time()
         avg_loss = nan
         if len(training_loader) != 0:
             avg_loss = running_loss / len(training_loader)
@@ -157,8 +192,10 @@ def train(args: argparse.Namespace):
                 true_batch_size = validation_sequences.size(0)
                 validation_sequences = validation_sequences.to(
                     device, non_blocking=True
-                )
-                validation_labels = validation_labels.to(device, non_blocking=True)
+                ).float()
+                validation_labels = validation_labels.to(
+                    device, non_blocking=True
+                ).float()
 
                 if validation_sequences.size(2) > args.inner_size:
                     start_idx = (validation_sequences.size(2) - args.inner_size) // 2
@@ -194,6 +231,7 @@ def train(args: argparse.Namespace):
             filtered_labels, filtered_preds, average="macro"
         )
         val_auroc = roc_auc_score(filtered_labels, filtered_preds, average="macro")
+        val_time: float = time.time() - t1
 
         scheduler.step(avg_validation_loss)
 
@@ -217,6 +255,7 @@ def train(args: argparse.Namespace):
             f"At epoch {epoch + 1} of {args.num_epochs}: "
             f"Training loss: {avg_loss:.4f} | Validation loss: {avg_validation_loss:.4f} | "
             f"Validation accuracy: {validation_accuracy * 100:.2f}% |  Validation ROC-AUC: {val_auroc:.4f} | "
-            f"Validation PR-AUC: {val_prauc:.4f}"
+            f"Validation PR-AUC: {val_prauc:.4f} | "
+            f"Training time: {train_time:.1f}, Validation time: {val_time:.1f}"
         )
     writer.close()

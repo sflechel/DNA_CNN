@@ -52,6 +52,9 @@ class DNASeqDataset(Dataset):
             pos_counts: NDArray[np.integer] = targets[:].sum(axis=0)
             self.mask = pos_counts >= min_positives
 
+            self.inputs = torch.from_numpy(inputs[:])
+            self.targets = torch.from_numpy(targets[:])
+
         logging.basicConfig(
             level=logging.INFO,
             format="%(asctime)s [%(levelname)s] %(message)s",
@@ -69,32 +72,17 @@ class DNASeqDataset(Dataset):
         return self.h5_file
 
     def __getitem__(self, index: int) -> tuple[Tensor, Tensor]:
-        h5file = self._get_h5_handle()
-        inputs = h5file["inputs"]
-        targets = h5file["targets"]
-        assert isinstance(inputs, h5py.Dataset)
-        assert isinstance(targets, h5py.Dataset)
-
-        X_raw: NDArray[np.float32] = inputs[index].astype(np.float32)
-        y: Tensor = torch.from_numpy(targets[index].astype(np.float32))
-
-        # center = self.window_size // 2
+        # h5file = self._get_h5_handle()
+        # inputs = h5file["inputs"]
+        # targets = h5file["targets"]
+        # assert isinstance(inputs, h5py.Dataset)
+        # assert isinstance(targets, h5py.Dataset)
         #
-        # if self.augment_data and self.jitter > 0:
-        #     offset = np.random.randint(-self.jitter, self.jitter + 1)
-        # else:
-        #     offset = 0
-        # crop_center = center + offset
-        # start = crop_center - (self.inner_size // 2)
-        # end = start + self.inner_size
-        # X_np: NDArray[np.float32] = X_raw[:, start:end]
-        # X: Tensor = torch.from_numpy(X_np)
-
-        # if self.augment_data and torch.rand(1).item() > 0.5:
-        #     X = reverse_complement(X)
-
-        # return X, y
-        return torch.from_numpy(X_raw), y
+        # X_raw: NDArray[np.float32] = inputs[index].astype(np.float32)
+        # y: Tensor = torch.from_numpy(targets[index].astype(np.float32))
+        #
+        # return torch.from_numpy(X_raw), y
+        return self.inputs[index], self.targets[index]
 
     def __del__(self):
         if self.h5_file is not None:
