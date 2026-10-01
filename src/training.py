@@ -34,17 +34,24 @@ def train(args: argparse.Namespace):
     )
     logger = logging.getLogger(__name__)
 
-    training_chroms = [f"chr{i}" for i in range(1, 21)]
-    validation_chroms = ["chr21"]
-    # test_chroms = ["chr22"]
-
     training_dataset = DNASeqDataset(
-        "data/ENCFF896UZB.bed", "data/hg38.fa", training_chroms, allow_rc=True
+        h5_filepath="data/processed/dataset_train.h5",
+        augment_data=True,
+        inner_size=1000,
+        jitter=24,
     )
     validation_dataset = DNASeqDataset(
-        "data/ENCFF896UZB.bed", "data/hg38.fa", validation_chroms, allow_rc=False
+        h5_filepath="data/processed/dataset_validation.h5",
+        augment_data=False,
+        inner_size=1000,
+        jitter=0,
     )
-    # test_dataset = DNASeqDataset("data/ENCFF896UZB.bed", "data/hg38.fa", test_chroms)
+    # test_dataset = DNASeqDataset(
+    #     h5_filepath="data/processed/dataset_test.h5",
+    #     augment_data=False,
+    #     inner_size=1000,
+    #     jitter=0,
+    # )
 
     training_loader = DataLoader(
         training_dataset,
