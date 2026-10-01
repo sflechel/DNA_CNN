@@ -1,3 +1,4 @@
+from numpy.typing import NDArray
 import torch
 from torch.utils.data import Dataset
 from torch import Tensor
@@ -9,8 +10,10 @@ from typing import cast
 
 def reverse_complement(sequences: torch.Tensor) -> torch.Tensor:
     # assumes A=0, C=1, G=2, T=3
-    flipped = torch.flip(sequences, dims=[0])
-    rc = flipped[:, [3, 2, 1, 0]]
+    # flipped = torch.flip(sequences, dims=[0])
+    # rc = flipped[:, [3, 2, 1, 0]]
+    flipped = torch.flip(sequences, dims=[1])
+    rc = flipped[[3, 2, 1, 0], :]
     return rc
 
 
@@ -22,6 +25,7 @@ class DNASeqDataset(Dataset):
         self.h5_path = h5_filepath
         self.inner_size = inner_size
         self.jitter = jitter
+        self.h5_file = None
 
         with h5py.File(self.h5_path, "r") as file:
             inputs = file["inputs"]
@@ -31,6 +35,12 @@ class DNASeqDataset(Dataset):
             self.num_samples = inputs.shape[0]
             self.num_targets = targets.shape[1]
             self.window_size = inputs.shape[2]
+
+            if inputs.chunks is not None:
+                self.chunk_size = inputs.chunks[0]
+            else:
+                self.chunk_size = 256
+
             target_names = cast(h5py.Dataset, file["target_names"])
             self.target_names = list(target_names.asstr()[:])
 
@@ -57,8 +67,8 @@ class DNASeqDataset(Dataset):
         assert isinstance(inputs, h5py.Dataset)
         assert isinstance(targets, h5py.Dataset)
 
-        X_raw = inputs[index].astype(np.float32)
-        y = targets[index].astype(np.float32)
+        X_raw: NDArray[np.float32] = inputs[index].astype(np.float32)
+        y: Tensor = torch.from_numpy(targets[index].astype(np.float32))
 
         center = self.window_size // 2
 
@@ -69,7 +79,8 @@ class DNASeqDataset(Dataset):
         crop_center = center + offset
         start = crop_center - (self.inner_size // 2)
         end = start + self.inner_size
-        X = X_raw[:, start:end]
+        X_np: NDArray[np.float32] = X_raw[:, start:end]
+        X: Tensor = torch.from_numpy(X_np)
 
         if self.augment_data and torch.rand(1).item() > 0.5:
             X = reverse_complement(X)

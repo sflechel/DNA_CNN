@@ -3,21 +3,21 @@ import torch.nn as nn
 
 
 class DNACNN(nn.Module):
-    def __init__(self, seq_len: int = 1000):
+    def __init__(self, num_targets: int, seq_len: int):
         super().__init__()
 
         self.feature_extractor = nn.Sequential(
-            nn.Conv1d(in_channels=4, out_channels=64, kernel_size=8),
+            nn.Conv1d(in_channels=4, out_channels=320, kernel_size=8),
             nn.ReLU(),
             nn.MaxPool1d(kernel_size=4),
             nn.Dropout1d(0.2),
-            nn.Conv1d(in_channels=64, out_channels=128, kernel_size=8),
+            nn.Conv1d(in_channels=320, out_channels=480, kernel_size=8),
             nn.ReLU(),
             nn.MaxPool1d(kernel_size=4),
             nn.Dropout1d(0.2),
-            nn.Conv1d(in_channels=128, out_channels=192, kernel_size=8),
+            nn.Conv1d(in_channels=480, out_channels=960, kernel_size=8),
+            nn.ReLU(),
             nn.Dropout1d(0.5),
-            nn.ReLU(),
         )
 
         # we use a dummy input to get the output shape without doing the maths
@@ -26,10 +26,10 @@ class DNACNN(nn.Module):
 
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(flat_size, 128),
+            nn.Linear(flat_size, 925),
             nn.ReLU(),
             # nn.Dropout(0.5),
-            nn.Linear(128, 1),
+            nn.Linear(925, num_targets),
         )
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:

@@ -37,25 +37,26 @@ def train(args: argparse.Namespace):
     training_dataset = DNASeqDataset(
         h5_filepath="data/processed/dataset_train.h5",
         augment_data=True,
-        inner_size=1000,
-        jitter=24,
+        inner_size=args.inner_size,
+        jitter=args.jitter,
     )
     validation_dataset = DNASeqDataset(
         h5_filepath="data/processed/dataset_validation.h5",
         augment_data=False,
-        inner_size=1000,
+        inner_size=args.inner_size,
         jitter=0,
     )
     # test_dataset = DNASeqDataset(
     #     h5_filepath="data/processed/dataset_test.h5",
     #     augment_data=False,
-    #     inner_size=1000,
+    #     inner_size=args.inner_size,
     #     jitter=0,
     # )
 
+    batch_size: int = training_dataset.chunk_size * args.batch_size_multiplier
     training_loader = DataLoader(
         training_dataset,
-        batch_size=args.batch_size,
+        batch_size=batch_size,
         shuffle=True,
         num_workers=args.num_workers,
         pin_memory=True,
@@ -63,7 +64,7 @@ def train(args: argparse.Namespace):
 
     validation_loader = DataLoader(
         validation_dataset,
-        batch_size=args.batch_size,
+        batch_size=batch_size,
         shuffle=True,
         num_workers=args.num_workers,
         pin_memory=True,
@@ -84,7 +85,9 @@ def train(args: argparse.Namespace):
     )
     logger.info(f"Training on {device}")
 
-    model: DNACNN = DNACNN().to(device)
+    num_targets: int = training_dataset.num_targets
+    seq_len: int = training_dataset.inner_size
+    model: DNACNN = DNACNN(num_targets=num_targets, seq_len=seq_len).to(device)
 
     criterion = nn.BCEWithLogitsLoss()
 

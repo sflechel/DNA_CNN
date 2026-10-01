@@ -7,6 +7,19 @@ def main():
         description="Train the DNA CNN to find active regions in noncoding DNA"
     )
     parser.add_argument(
+        "-is",
+        "--inner_size",
+        type=int,
+        default=1000,
+        help="Size of the DNA sequence on which the network trains",
+    )
+    parser.add_argument(
+        "--jitter",
+        type=int,
+        default=24,
+        help="Maximum of random jitter in sequence position",
+    )
+    parser.add_argument(
         "-ne",
         "--num_epochs",
         type=int,
@@ -22,10 +35,10 @@ def main():
     )
     parser.add_argument(
         "-bs",
-        "--batch_size",
+        "--batch_size_multiplier",
         type=int,
-        default=256,
-        help="How many training samples to compute per batch",
+        default=1,
+        help="How much to multiply chunk_size by to get the bacth size",
     )
     parser.add_argument(
         "-lr",
