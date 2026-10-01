@@ -16,12 +16,13 @@ def reverse_complement(sequences: torch.Tensor) -> torch.Tensor:
 
 class DNASeqDataset(Dataset):
     def __init__(
-        self,
-        h5_filepath: str,
-        allow_rc: bool,
+        self, h5_filepath: str, augment_data: bool, inner_size: int, jitter: int
     ):
-        self.allow_rc = allow_rc
+        self.augment_data = augment_data
         self.h5_path = h5_filepath
+        self.inner_size = inner_size
+        self.jitter = jitter
+
         with h5py.File(self.h5_path, "r") as file:
             inputs = file["inputs"]
             targets = file["targets"]
@@ -56,10 +57,21 @@ class DNASeqDataset(Dataset):
         assert isinstance(inputs, h5py.Dataset)
         assert isinstance(targets, h5py.Dataset)
 
-        X = inputs[index].astype(np.float32)
+        X_raw = inputs[index].astype(np.float32)
         y = targets[index].astype(np.float32)
 
-        if self.allow_rc and torch.rand(1).item() > 0.5:
+        center = self.window_size // 2
+
+        if self.augment_data and self.jitter > 0:
+            offset = np.random.randint(-self.jitter, self.jitter + 1)
+        else:
+            offset = 0
+        crop_center = center + offset
+        start = crop_center - (self.inner_size // 2)
+        end = start + self.inner_size
+        X = X_raw[:, start:end]
+
+        if self.augment_data and torch.rand(1).item() > 0.5:
             X = reverse_complement(X)
 
         return X, y
