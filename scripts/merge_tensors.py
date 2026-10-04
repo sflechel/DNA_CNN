@@ -101,6 +101,7 @@ def merge_tensors(
     target_ids: str,
     pos_h5s: list[str],
     neg_h5s: list[str],
+    test_h5s: list[str],
     train_h5: str,
     val_h5: str,
     test_h5: str,
@@ -108,7 +109,7 @@ def merge_tensors(
     with open(target_ids, "r") as file:
         targets: list[str] = json.load(file)["target_list"]
 
-    all_h5s: list[str] = pos_h5s + neg_h5s
+    all_h5s: list[str] = pos_h5s + neg_h5s + test_h5s
 
     split_files: dict[str, list[str]] = {"train": [], "val": [], "test": []}
 
@@ -154,6 +155,7 @@ def main() -> None:
         target_ids=snakemake.input.target_ids,
         pos_h5s=snakemake.input.pos_h5s,
         neg_h5s=snakemake.input.neg_h5s,
+        test_h5s=snakemake.input.test_h5s,
         train_h5=snakemake.output.train_h5,
         val_h5=snakemake.output.val_h5,
         test_h5=snakemake.output.test_h5,

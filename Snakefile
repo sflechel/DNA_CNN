@@ -11,14 +11,27 @@ rule all:
 rule merge_tensors:
     input:
         pos_h5s=expand("data/processed/tensors/{chrom}_pos.h5", chrom=CHROMS),
-        neg_h5s=expand("data/processed/tensors/{chrom}_neg.h5", chrom=CHROMS),
-        target_ids="data/processed/target_ids.json"
+        neg_h5s=expand("data/processed/tensors/{chrom}_neg.h5", chrom=[c for c in CHROMS if c not in config["test_chroms"]]),
+        # neg_h5s=expand("data/processed/tensors/{chrom}_neg.h5", chrom=CHROMS),
+        test_h5s=expand("data/processed/tensors/{chrom}_testneg.h5", chrom=config["test_chroms"]),
+        target_ids="data/processed/target_ids.json",
     output:
         train_h5="data/processed/dataset_train.h5",
         val_h5="data/processed/dataset_validation.h5",
         test_h5="data/processed/dataset_test.h5"
     script:
         "scripts/merge_tensors.py"
+
+rule extract_negatives_test:
+    input:
+        fa="data/fasta/hg38.fa",
+        master_bed="data/processed/filtered_master.bed",
+        target_ids="data/processed/target_ids.json"
+    output:
+        h5="data/processed/tensors/{chrom}_testneg.h5"
+    script:
+        "scripts/extract_negatives_test.py"
+
 
 rule extract_negatives:
     input:

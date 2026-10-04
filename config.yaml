@@ -14,7 +14,7 @@ validation_chroms:
   - "chr21"
 
 test_chroms:
-  - "chr22"
+  - "chr18"
 
 min_peaks_filter: 3000
 
