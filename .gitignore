@@ -1,4 +1,3 @@
-# Python-generated files
 __pycache__/
 *.py[oc]
 build/
@@ -7,9 +6,9 @@ wheels/
 runs/
 *.egg-info
 
-# Virtual environments
 .venv
 .snakemake
+
 data
 wandb/
 *.log
