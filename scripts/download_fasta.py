@@ -11,6 +11,7 @@ logging.basicConfig(
 
 
 def download_fasta():
+    """Download whole genome FASTA file"""
     config = snakemake.config
     output_dir = config["fasta_outdir"]
     fasta = config["fasta"]
@@ -24,7 +25,6 @@ def download_fasta():
         return
 
     logging.info("Fetching hg38 reference genome from UCSC...")
-    # urllib.request.urlretrieve(fasta_url, gz_path)
     response = requests.get(fasta_url, stream=True)
     response.raise_for_status()
 
@@ -36,7 +36,6 @@ def download_fasta():
     with gzip.open(gz_path, "rb") as f_in, open(fa_path, "wb") as f_out:
         shutil.copyfileobj(f_in, f_out)
 
-    # Clean up compressed archive to save disk space
     os.remove(gz_path)
     logging.info(f"Reference FASTA ready at {fa_path}")
 

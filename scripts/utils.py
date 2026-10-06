@@ -5,6 +5,7 @@ import numpy as np
 def load_chrom_peaks(
     bed_path: str, target_chrom: str
 ) -> list[tuple[int, int, list[int]]]:
+    """Return CHiPseq peaks of a bed file as (start, end, [list of targets])"""
     peaks = []
     with open(bed_path, "r") as file:
         for line in file:
@@ -26,10 +27,12 @@ def load_chrom_peaks(
 
 
 def get_gc_content(seq: str) -> float:
+    """Return gc content of a sequence"""
     return (seq.count("G") + seq.count("C")) / len(seq)
 
 
 def one_hot_encode_sequences(seqs: list[str]) -> NDArray[np.float32]:
+    """Efficient one-hot-encoding of DNA sequences (ACGT)"""
     num_seqs = len(seqs)
     seq_len = len(seqs[0])
 

@@ -18,6 +18,7 @@ def process_and_save_dataset(
     name: str,
     window_size: int,
 ) -> None:
+    """Get per-chromosome positive and negative sequences, shuffle them and output them as a h5 dataset"""
     num_targets: int = len(targets)
     total_samples: int = 0
 
@@ -31,6 +32,7 @@ def process_and_save_dataset(
     else:
         logging.info(f"Dataset {name} has {total_samples} samples")
 
+    # out-of-core shuffling
     tmp_name: str = f"{output}_tmp"
     with h5py.File(tmp_name, "w") as outfile:
         sequences = outfile.create_dataset(
@@ -106,6 +108,7 @@ def merge_tensors(
     val_h5: str,
     test_h5: str,
 ) -> None:
+    """Get all chromosome bed files, split them into training, validation and test datasets"""
     with open(target_ids, "r") as file:
         targets: list[str] = json.load(file)["target_list"]
 

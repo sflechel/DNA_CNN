@@ -12,7 +12,6 @@ rule merge_tensors:
     input:
         pos_h5s=expand("data/processed/tensors/{chrom}_pos.h5", chrom=CHROMS),
         neg_h5s=expand("data/processed/tensors/{chrom}_neg.h5", chrom=[c for c in CHROMS if c not in config["test_chroms"]]),
-        # neg_h5s=expand("data/processed/tensors/{chrom}_neg.h5", chrom=CHROMS),
         test_h5s=expand("data/processed/tensors/{chrom}_testneg.h5", chrom=config["test_chroms"]),
         target_ids="data/processed/target_ids.json",
     output:

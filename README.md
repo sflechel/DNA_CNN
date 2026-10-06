@@ -16,7 +16,7 @@ The project includes an **ETL pipeline orchestrated with Snakemake** that:
 
 The training pipeline was also optimized for GPU performance. On an **NVIDIA RTX 4050**, training time was reduced from approximately **7 minutes per epoch to 3 minutes per epoch**.
 
-The resulting model achieves a **ROC-AUC of 0.9406**.
+The resulting model achieves a **median ROC-AUC of 0.9406**.
 
 ## Results
 
@@ -178,7 +178,3 @@ Then train and evaluate the model:
 
     uv run main.py
     uv run testing.py
-
-## License
-
-Add the project's license here if applicable.

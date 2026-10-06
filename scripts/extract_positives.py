@@ -23,6 +23,8 @@ def extract_positives(
     stats: str,
     h5: str,
 ) -> None:
+    """Extract the sequences of all positives for this chromosome and save it as h5.
+    Also output the list of gc content of all positive sequences as json"""
     seqs: list[str] = []
     labels: list[NDArray[np.float32]] = []
     peak_gc_contents: list[float] = []

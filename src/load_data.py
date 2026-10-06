@@ -9,9 +9,7 @@ from typing import cast
 
 
 def reverse_complement(sequences: torch.Tensor) -> torch.Tensor:
-    # assumes A=0, C=1, G=2, T=3
-    # flipped = torch.flip(sequences, dims=[0])
-    # rc = flipped[:, [3, 2, 1, 0]]
+    """Return the reverse_complement of a one-hot-encoded DNA sequence (ACGT)"""
     flipped = torch.flip(sequences, dims=[1])
     rc = flipped[[3, 2, 1, 0], :]
     return rc
@@ -67,21 +65,12 @@ class DNASeqDataset(Dataset):
         return self.num_samples
 
     def _get_h5_handle(self):
+        """Avoid data races between workers"""
         if self.h5_file is None:
             self.h5_file = h5py.File(self.h5_path, "r")
         return self.h5_file
 
     def __getitem__(self, index: int) -> tuple[Tensor, Tensor]:
-        # h5file = self._get_h5_handle()
-        # inputs = h5file["inputs"]
-        # targets = h5file["targets"]
-        # assert isinstance(inputs, h5py.Dataset)
-        # assert isinstance(targets, h5py.Dataset)
-        #
-        # X_raw: NDArray[np.float32] = inputs[index].astype(np.float32)
-        # y: Tensor = torch.from_numpy(targets[index].astype(np.float32))
-        #
-        # return torch.from_numpy(X_raw), y
         return self.inputs[index], self.targets[index]
 
     def __del__(self):

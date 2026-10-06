@@ -14,6 +14,7 @@ logging.basicConfig(
 
 
 def create_robust_session():
+    """Exponential falloff retry rules for API querying"""
     session = requests.Session()
     retries = Retry(
         total=5,
@@ -36,6 +37,7 @@ def count_gzipped_lines(filepath):
 
 
 def main():
+    """Query ENCODE for ChIPseq data matching configured parameters"""
     config = snakemake.config
     outdir = config["beds_outdir"]
     os.makedirs(outdir, exist_ok=True)

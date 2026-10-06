@@ -10,6 +10,7 @@ logging.basicConfig(
 
 
 def merge_beds(beds_dir: str, output_bed: str):
+    """Merge all downloaded bed files into master bed file"""
     os.makedirs(os.path.dirname(output_bed), exist_ok=True)
 
     bed_files = glob.glob(os.path.join(beds_dir, "*.bed.gz"))

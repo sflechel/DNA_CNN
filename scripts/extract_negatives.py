@@ -18,6 +18,7 @@ logging.basicConfig(
 def build_exclusion_zones(
     peaks: list[tuple[int, int, list[int]]], window_size: int
 ) -> list[tuple[int, int]]:
+    """Exclude all DNA at least window_size base pairs from positives from being included in negatives"""
 
     all_zones: list[tuple[int, int]] = [
         (max(0, peak[0] - window_size), peak[1] + window_size) for peak in peaks
@@ -34,6 +35,7 @@ def build_exclusion_zones(
 
 
 def is_excluded(start: int, end: int, zones: list[tuple[int, int]]) -> bool:
+    """Return True if sequence overlap with excluded sequences"""
     zone_starts = [zone[0] for zone in zones]
     id_prev_zone = bisect.bisect_right(zone_starts, end) - 1
     if id_prev_zone >= 0 and zones[id_prev_zone][1] > start:
@@ -44,6 +46,8 @@ def is_excluded(start: int, end: int, zones: list[tuple[int, int]]) -> bool:
 def find_and_pop_gc_match(
     candidate: float, gcs: list[float], tolerance: float
 ) -> float | None:
+    """Find the closest positive sequence gc content to the candidate sequence's gc content,
+    return it and remove it from the list"""
     if not gcs:
         return None
 
@@ -75,6 +79,7 @@ def extract_negatives(
     pos_stats: str,
     h5: str,
 ) -> None:
+    """Extract negative sequences and save them to disk as h5 file"""
     with open(pos_stats, "r") as file:
         stats = json.load(file)
     with open(target_ids, "r") as file:

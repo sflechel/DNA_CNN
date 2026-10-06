@@ -22,6 +22,7 @@ def build_test_dataset(
     target_ids: str,
     output_path: str,
 ):
+    """Different sampling strategy for test dataset negatives, mimicking Zhou (2015)'s strategy"""
     with pysam.FastaFile(fasta_path) as fasta:
         chrom_len: int = fasta.get_reference_length(chrom)
 

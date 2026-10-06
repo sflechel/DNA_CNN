@@ -33,6 +33,7 @@ class DNACNN(nn.Module):
         )
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
+        """Forward pass"""
         # channels need to be the last dimension, if it's not we transpose
         if input.shape[-1] == 4:
             input = input.transpose(1, 2)
@@ -45,6 +46,7 @@ class DNACNN(nn.Module):
     def forward_return_hidden(
         self, input: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Forward pass that return the output of the fully connected layer for regularization"""
         if input.shape[-1] == 4:
             input = input.transpose(1, 2)
 
@@ -53,8 +55,6 @@ class DNACNN(nn.Module):
 
         hidden_weights = self.classifier[1](flattened)
         hidden_activation = self.classifier[2](hidden_weights)
-        # hidden_dropout = self.classifier[3](hidden_activation)
-        # logits = self.classifier[4](hidden_dropout)
         logits = self.classifier[3](hidden_activation)
 
         return logits.squeeze(-1), hidden_activation

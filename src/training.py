@@ -15,6 +15,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 def apply_weight_norm_constraint(model: nn.Module, lambda3: float) -> None:
+    """Regularization preventing any weight from exceeding a certain value"""
     with torch.no_grad():
         for name, param in model.named_parameters():
             if "weight" not in name:
@@ -31,22 +32,26 @@ def apply_weight_norm_constraint(model: nn.Module, lambda3: float) -> None:
                 param.mul_(torch.where(violators, scale, 1.0))
 
 
-# def apply_weight_norm_constraint(model: DNACNN, lambda3: float) -> None:
-#     with torch.no_grad():
-#         for name, param in model.named_parameters():
-#             if "weight" not in name:
-#                 continue
-#             if param.ndim == 2:
-#                 l2norm = torch.norm(param, p=2, dim=1, keepdim=True)
-#                 clamped = torch.clamp(l2norm, max=lambda3)
-#                 param.copy_(param * (clamped / (l2norm + 1e-8)))
-#             elif param.ndim == 3:
-#                 l2norm = torch.norm(param, p=2, dim=[1, 2], keepdim=True)
-#                 clamped = torch.clamp(l2norm, max=lambda3)
-#                 param.copy_(param * clamped / (l2norm + 1e-8))
+def gpu_side_data_augmentation(sequences: torch.Tensor, sequence_size: int) -> None:
+    """Randomly shift the sequence trained on inside the larger window, and apply reverse-complement data augmentation"""
+    if sequences.size(2) > sequence_size:
+        max_offset = sequences.size(2) - sequence_size
+        start_index = torch.randint(0, max_offset + 1, (1,)).item()
+        sequences = sequences[:, :, start_index : start_index + sequence_size]
+
+    if random.random() > 0.5:
+        sequences = torch.flip(sequences, dims=[1, 2])
+
+
+def no_data_augmentation(sequences: torch.Tensor, inner_size: int) -> None:
+    """Take inner window exactly at center of outer window"""
+    if sequences.size(2) > inner_size:
+        start_idx = (sequences.size(2) - inner_size) // 2
+        sequences = sequences[:, :, start_idx : start_idx + inner_size]
 
 
 def train(args: argparse.Namespace):
+    """Train the neural network"""
     writer = SummaryWriter(log_dir="runs")
     logging.basicConfig(
         level=logging.INFO,
@@ -55,6 +60,7 @@ def train(args: argparse.Namespace):
     )
     logger = logging.getLogger(__name__)
 
+    # initialization
     training_dataset = DNASeqDataset(
         h5_filepath="data/processed/dataset_train.h5",
         augment_data=True,
@@ -69,22 +75,8 @@ def train(args: argparse.Namespace):
         jitter=0,
         min_positives=args.min_positives,
     )
-    # test_dataset = DNASeqDataset(
-    #     h5_filepath="data/processed/dataset_test.h5",
-    #     augment_data=False,
-    #     inner_size=args.inner_size,
-    #     jitter=0,
-    # )
 
     batch_size: int = training_dataset.chunk_size * args.batch_size_multiplier
-    # training_loader = DataLoader(
-    #     training_dataset,
-    #     batch_size=batch_size,
-    #     shuffle=True,
-    #     num_workers=args.num_workers,
-    #     pin_memory=True,
-    #     persistent_workers=True,
-    # )
 
     training_loader = DataLoader(
         training_dataset,
@@ -123,16 +115,15 @@ def train(args: argparse.Namespace):
 
     scaler = torch.amp.GradScaler("cuda")
     criterion = nn.BCEWithLogitsLoss()
-
     optimizer = optim.Adam(
         model.parameters(),
         lr=args.learning_rate,
         weight_decay=args.weight_decay,
         fused=True,
     )
-
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=3)
 
+    # training loop
     best_val_loss = float("inf")
     patience_counter = 0
     for epoch in range(args.num_epochs):
@@ -145,15 +136,9 @@ def train(args: argparse.Namespace):
             sequences = sequences.to(device, non_blocking=True).float()
             labels = labels.to(device, non_blocking=True).float()
 
-            if sequences.size(2) > args.inner_size:
-                max_offset = sequences.size(2) - args.inner_size
-                start_index = torch.randint(0, max_offset + 1, (1,)).item()
-                sequences = sequences[:, :, start_index : start_index + args.inner_size]
+            gpu_side_data_augmentation(sequences, args.inner_size)
 
-            if random.random() > 0.5:
-                sequences = torch.flip(sequences, dims=[1, 2])
-
-            optimizer.zero_grad()  # clear out gradients from previous epoch
+            optimizer.zero_grad()
 
             with torch.amp.autocast("cuda"):
                 predictions, hidden_activation = model.forward_return_hidden(sequences)
@@ -179,6 +164,7 @@ def train(args: argparse.Namespace):
         if len(training_loader) != 0:
             avg_loss = running_loss / len(training_loader)
 
+        # model validation
         model.eval()
         validation_loss = 0.0
         correct_predictions = 0
@@ -197,11 +183,8 @@ def train(args: argparse.Namespace):
                     device, non_blocking=True
                 ).float()
 
-                if validation_sequences.size(2) > args.inner_size:
-                    start_idx = (validation_sequences.size(2) - args.inner_size) // 2
-                    validation_sequences = validation_sequences[
-                        :, :, start_idx : start_idx + args.inner_size
-                    ]
+                no_data_augmentation(validation_sequences, args.inner_size)
+
                 with torch.amp.autocast("cuda"):
                     validation_logits = model(validation_sequences)
                     batch_loss = criterion(validation_logits, validation_labels)
@@ -219,7 +202,9 @@ def train(args: argparse.Namespace):
                 all_preds.append(probabilities)
                 all_labels.append(validation_labels)
 
+        # training statistics
         avg_validation_loss = validation_loss / total_samples
+        scheduler.step(avg_validation_loss)
         validation_accuracy = correct_predictions / total_elements
 
         all_preds = torch.cat(all_preds, dim=0).cpu().numpy()
@@ -233,8 +218,6 @@ def train(args: argparse.Namespace):
         val_auroc = roc_auc_score(filtered_labels, filtered_preds, average="macro")
         val_time: float = time.time() - t1
 
-        scheduler.step(avg_validation_loss)
-
         if avg_validation_loss < best_val_loss:
             best_val_loss = avg_validation_loss
             patience_counter = 0
@@ -247,6 +230,7 @@ def train(args: argparse.Namespace):
             logger.info("No progress is being made, aborting")
             break
 
+        # logging
         writer.add_scalar("Loss/train", avg_loss, epoch)
         writer.add_scalar("Loss/val", avg_validation_loss, epoch)
         writer.add_scalar("Metrics/Val_ROC_AUC", val_auroc, epoch)

@@ -12,6 +12,7 @@ import numpy as np
 
 
 def testing(args: argparse.Namespace) -> None:
+    """Do predictions on testing dataset and output per-target ROC-AUC plot"""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
@@ -95,7 +96,7 @@ def testing(args: argparse.Namespace) -> None:
     target_names = test_dataset.target_names
     logger.info(f"Macro PR-AUC: {prauc:.4f}, Macro ROC-AUC: {auroc:.4f}")
 
-    # 1. Compute per-target ROC curves
+    # compute per-target ROC curves
 
     roc_data = []
     auc_scores = {}
@@ -127,7 +128,7 @@ def testing(args: argparse.Namespace) -> None:
         json.dump(auc_scores, f, indent=4)
     logger.info(f"Saved per-target metrics to {args.metrics_out}")
 
-    # 2. Replicate the Zhou (2015) Figure 2a styling
+    # replicate the Zhou (2015) Figure 2a styling
     logger.info("Generating ROC plot...")
     fig, ax = plt.subplots(figsize=(4.5, 4.5))
 
@@ -152,7 +153,6 @@ def testing(args: argparse.Namespace) -> None:
 
     plt.tight_layout()
 
-    # Save the figure
     plot_path = args.plot_out
     plt.savefig(plot_path, dpi=300, bbox_inches="tight")
     plt.close()

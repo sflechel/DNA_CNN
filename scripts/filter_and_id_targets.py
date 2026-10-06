@@ -14,6 +14,7 @@ logging.basicConfig(
 def cluster_peaks(
     peaks: list[tuple[int, int, int]], max_span: int
 ) -> list[list[tuple[int, int, int]]]:
+    """Merge all peaks that fit into a max_span sized window into peak clusters"""
     if not peaks:
         return []
     clusters = []
@@ -38,6 +39,7 @@ def filter_peaks(
     peaks: list[tuple[str, int, int, NDArray[np.int32]]],
     target_list: list[str],
 ) -> tuple[list[tuple[str, int, int, list[int]]], list[str], dict[str, int]]:
+    """Remove targets that have less than min_peaks peaks from data"""
 
     label_matrix: NDArray[np.int32] = np.vstack([p[3] for p in peaks])
     target_counts: NDArray[np.int32] = label_matrix.sum(axis=0)
@@ -82,6 +84,7 @@ def merge_peaks(
     window_size: int,
     inner_size: int,
 ) -> list[tuple[str, int, int, NDArray[np.int32]]]:
+    """Merge nearby peaks and multi-hot-encode them"""
 
     peaks_per_chrom: dict[str, list[tuple[int, int, int]]] = {}
     chroms_seen: list[str] = []
@@ -139,6 +142,7 @@ def merge_peaks(
 
 
 def map_targets_to_ids(bed_path: str) -> tuple[list[str], dict[str, int]]:
+    """Associate target TF to int id, return list of target names and name-id dictionary"""
     targets: set[str] = set()
     with open(bed_path, "r") as file:
         for line in file:
@@ -161,6 +165,7 @@ def write_targets(
     targets_path: str,
     bed_path: str,
 ) -> None:
+    """Write filtered target lists and filtered peaks to disk"""
     os.makedirs(os.path.dirname(targets_path), exist_ok=True)
     with open(targets_path, "w") as file:
         json.dump({"target_list": target_list, "targets_to_ids": targets_to_ids}, file)
